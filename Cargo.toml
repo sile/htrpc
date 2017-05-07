@@ -1,0 +1,10 @@
+[package]
+name = "htrpc"
+version = "0.1.0"
+authors = ["Takeru Ohta <phjgt308@gmail.com>"]
+
+[dependencies]
+futures = "0.1"
+miasht = "0.0"
+serde = "1"
+trackable = "0.1"
