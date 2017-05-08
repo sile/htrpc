@@ -2,7 +2,9 @@ use futures::BoxFuture;
 use serde::{Serialize, Deserialize};
 
 use {Result, Method, Status};
+use path_template::PathTemplate;
 
+// TODO
 pub type Unreachable = ();
 pub type Request = ();
 
@@ -16,7 +18,7 @@ pub trait Procedure {
 #[derive(Debug)]
 pub struct EntryPoint {
     pub method: Method,
-    pub path: &'static [Option<&'static str>],
+    pub path: PathTemplate,
 }
 
 #[derive(Debug)]

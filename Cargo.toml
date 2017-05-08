@@ -8,3 +8,7 @@ futures = "0.1"
 miasht = "0.0"
 serde = "1"
 trackable = "0.1"
+url = "1"
+
+[dev-dependencies]
+serde_derive = "1"
