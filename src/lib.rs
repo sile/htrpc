@@ -16,7 +16,7 @@ pub mod server;
 pub mod procedure;
 
 pub mod path_template;
-pub mod path_template_ser;
+pub mod serializers;
 
 mod error;
 

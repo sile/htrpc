@@ -1,8 +1,3 @@
-use serde::Serialize;
-use url::Url;
-
-use Result;
-
 #[derive(Debug, Clone)]
 pub struct PathTemplate {
     segments: &'static [PathSegment],
@@ -11,22 +6,28 @@ impl PathTemplate {
     pub fn new(segments: &'static [PathSegment]) -> Self {
         PathTemplate { segments }
     }
-
-    // TODO
-    pub fn fill_path_segments<T>(&self, url: &mut Url, params: T) -> Result<()>
-        where T: Serialize
-    {
-        let mut serializer = ::path_template_ser::Serializer::new();
-        track_try!(params.serialize(&mut serializer));
-        let _url = url;
-        panic!()
+    pub fn var_count(&self) -> usize {
+        self.segments
+            .iter()
+            .filter(|s| s == &&PathSegment::Var)
+            .count()
+    }
+    pub fn len(&self) -> usize {
+        self.segments.len()
+    }
+    pub fn get_val(&self, i: usize) -> Option<&str> {
+        if let PathSegment::Val(s) = self.segments[i] {
+            Some(s)
+        } else {
+            None
+        }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PathSegment {
     Val(&'static str),
-    Var(&'static str),
+    Var,
 }
 
 #[cfg(test)]
@@ -36,7 +37,7 @@ mod test {
     #[test]
     fn it_works() {
         use self::PathSegment::*;
-        static SEGMENTS: &[PathSegment] = &[Val("foo"), Var("Var"), Val("baz")];
+        static SEGMENTS: &[PathSegment] = &[Val("foo"), Var, Val("baz")];
         let _path = PathTemplate::new(SEGMENTS);
     }
 }

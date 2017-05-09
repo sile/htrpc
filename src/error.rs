@@ -18,7 +18,6 @@ impl ser::Error for Error {
 #[derive(Debug, Clone)]
 pub enum ErrorKind {
     Invalid,
-    Unsupported,
     Other,
 }
 impl TrackableErrorKind for ErrorKind {}
