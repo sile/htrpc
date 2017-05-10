@@ -1,6 +1,7 @@
 use futures::BoxFuture;
 use serde::{Serialize, Deserialize};
 
+#[allow(unused_imports)]
 use {Result, Method, Status};
 use path_template::PathTemplate;
 
@@ -61,9 +62,9 @@ pub trait RpcInput: Sized {
 }
 
 pub trait RpcOutput: Sized {
-    type Header: Serialize + for<'a> Deserialize<'a>;
-    type Body: Serialize + for<'a> Deserialize<'a>;
+    // type Header: Serialize + for<'a> Deserialize<'a>;
+    // type Body: Serialize + for<'a> Deserialize<'a>;
 
-    fn compose(status: Status, header: Self::Header, body: Self::Body) -> Result<Self>;
-    fn decompose(self) -> Result<(Status, Self::Header, Self::Body)>;
+    // fn compose(status: Status, header: Self::Header, body: Self::Body) -> Result<Self>;
+    // fn decompose(self) -> Result<(Status, Self::Header, Self::Body)>;
 }
