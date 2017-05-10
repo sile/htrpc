@@ -1,6 +1,10 @@
+extern crate fibers;
 extern crate futures;
+extern crate handy_async;
 extern crate miasht;
+#[macro_use]
 extern crate serde;
+extern crate serdeconv;
 #[cfg(test)]
 #[macro_use]
 extern crate serde_derive;
@@ -15,6 +19,7 @@ pub mod client;
 pub mod server;
 pub mod procedure;
 
+pub mod deserializers;
 pub mod path_template;
 pub mod serializers;
 

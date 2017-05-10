@@ -15,6 +15,12 @@ impl PathTemplate {
     pub fn len(&self) -> usize {
         self.segments.len()
     }
+    pub fn is_var_remaning(&self, i: usize) -> bool {
+        self.segments[i..]
+            .iter()
+            .find(|s| **s == PathSegment::Var)
+            .is_some()
+    }
     pub fn get_val(&self, i: usize) -> Option<&str> {
         if let PathSegment::Val(s) = self.segments[i] {
             Some(s)
