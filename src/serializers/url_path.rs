@@ -1,9 +1,9 @@
 use serde::{ser, Serialize};
+use serde::ser::Impossible;
 use url::PathSegmentsMut;
 
 use {Result, Error, ErrorKind};
 use path_template::PathTemplate;
-use serializers::UnusableSerializer;
 
 pub struct UrlPathSerializer<'a> {
     segments: PathSegmentsMut<'a>,
@@ -51,13 +51,13 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
     type Ok = ();
     type Error = Error;
 
-    type SerializeSeq = UnusableSerializer;
+    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Self;
-    type SerializeMap = UnusableSerializer;
-    type SerializeStruct = UnusableSerializer;
-    type SerializeStructVariant = UnusableSerializer;
+    type SerializeMap = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
         let s = if v { "ture" } else { "false" };

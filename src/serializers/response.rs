@@ -1,9 +1,10 @@
 use fibers::net::TcpStream;
 use miasht::server::{Connection, ResponseBuilder, Response};
 use serde::{ser, Serialize};
+use serde::ser::Impossible;
 
 use {Result, Error, ErrorKind, Status};
-use serializers::{HttpHeaderSerializer, UnusableSerializer};
+use serializers::HttpHeaderSerializer;
 
 // enum Response {
 //     Status0{header, body},
@@ -37,12 +38,12 @@ impl<'a> ser::Serializer for &'a mut ResponseSerializer {
     type Ok = ();
     type Error = Error;
 
-    type SerializeSeq = UnusableSerializer;
-    type SerializeTuple = UnusableSerializer;
-    type SerializeTupleStruct = UnusableSerializer;
-    type SerializeTupleVariant = UnusableSerializer;
-    type SerializeMap = UnusableSerializer;
-    type SerializeStruct = UnusableSerializer;
+    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
+    type SerializeMap = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
     type SerializeStructVariant = Self;
 
     fn serialize_bool(self, _v: bool) -> Result<Self::Ok> {

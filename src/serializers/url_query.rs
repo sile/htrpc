@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 use serde::{ser, Serialize};
+use serde::ser::Impossible;
 use url::UrlQuery;
 use url::form_urlencoded::Serializer;
 
 use {Result, Error, ErrorKind};
-use serializers::UnusableSerializer;
 
 pub struct UrlQuerySerializer<'a> {
     is_first: bool,
@@ -33,10 +33,10 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlQuerySerializer<'b> {
     type Ok = ();
     type Error = Error;
 
-    type SerializeSeq = UnusableSerializer;
-    type SerializeTuple = UnusableSerializer;
-    type SerializeTupleStruct = UnusableSerializer;
-    type SerializeTupleVariant = UnusableSerializer;
+    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
     type SerializeMap = Self;
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
