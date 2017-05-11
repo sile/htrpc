@@ -4,7 +4,7 @@ use serde::{ser, Serialize};
 use serde::ser::Impossible;
 
 use {Result, Error, ErrorKind, Status};
-use serializers::HttpHeaderSerializer;
+use serializers::{HttpBodySerializer, HttpHeaderSerializer};
 
 // enum Response {
 //     Status0{header, body},
@@ -181,14 +181,15 @@ impl<'a> ser::SerializeStructVariant for &'a mut ResponseSerializer {
                 Ok(())
             }
             "body" => {
-                track_try!(value.serialize(&mut **self));
-                track_panic!(ErrorKind::Invalid, "TODO");
+                let body = track_try!(value.serialize(HttpBodySerializer));
+                self.body = body;
+                Ok(())
             }
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
         }
     }
     fn end(self) -> Result<Self::Ok> {
-        track_panic!(ErrorKind::Invalid);
+        Ok(())
     }
 }
 

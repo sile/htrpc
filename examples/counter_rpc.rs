@@ -120,20 +120,9 @@ impl HandleCall for FetchAndAddHandler {
 // TODO:
 #[derive(Serialize, Deserialize)]
 enum FetchAndAddOutput {
-    Ok {
-        header: EmptyHeader,
-        #[serde(serialize_with = "foo")]
-        body: usize,
-    },
+    Ok { header: EmptyHeader, body: usize },
 }
 impl RpcOutput for FetchAndAddOutput {}
-
-use htrpc::serializers::ResponseSerializer;
-fn foo<S>(x: &usize, s: S) -> ::std::result::Result<S::Ok, S::Error>
-    where S: serde::Serializer
-{
-    panic!()
-}
 
 #[derive(Debug)]
 struct FetchAndAddInput {
