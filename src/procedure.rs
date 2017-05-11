@@ -6,15 +6,22 @@ use {Result, Method, Status};
 use path_template::PathTemplate;
 
 // TODO
-pub type Unreachable = ();
-pub type Request = ();
+#[derive(Debug)]
+pub struct Unreachable {
+    _cannot_instantiate: (),
+}
 
 pub trait Procedure {
     // TODO: s/input/request/
     type Input: RpcInput;
     type Output: RpcOutput;
     fn entry_point() -> EntryPoint;
-    fn handle_call(self, input: Self::Input) -> BoxFuture<Self::Output, Unreachable>;
+}
+pub trait HandleCall: Clone + Send + 'static {
+    type Procedure: Procedure;
+    fn handle_call(self,
+                   input: <Self::Procedure as Procedure>::Input)
+                   -> BoxFuture<<Self::Procedure as Procedure>::Output, Unreachable>;
 }
 
 #[derive(Debug)]
@@ -61,10 +68,9 @@ pub trait RpcInput: Sized {
     }
 }
 
-pub trait RpcOutput: Sized {
-    // type Header: Serialize + for<'a> Deserialize<'a>;
-    // type Body: Serialize + for<'a> Deserialize<'a>;
-
-    // fn compose(status: Status, header: Self::Header, body: Self::Body) -> Result<Self>;
-    // fn decompose(self) -> Result<(Status, Self::Header, Self::Body)>;
-}
+// enum Response {
+//     Ok{header, body},
+//     NotFound{header},
+//     Default{body},
+// }
+pub trait RpcOutput: Serialize + for<'a> Deserialize<'a> {}

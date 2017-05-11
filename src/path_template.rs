@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct PathTemplate {
     segments: &'static [PathSegment],
 }
@@ -21,16 +21,19 @@ impl PathTemplate {
             .find(|s| **s == PathSegment::Var)
             .is_some()
     }
-    pub fn get_val(&self, i: usize) -> Option<&str> {
+    pub fn get_val(&self, i: usize) -> Option<&'static str> {
         if let PathSegment::Val(s) = self.segments[i] {
             Some(s)
         } else {
             None
         }
     }
+    pub fn segments(&self) -> &'static [PathSegment] {
+        self.segments
+    }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PathSegment {
     Val(&'static str),
     Var,

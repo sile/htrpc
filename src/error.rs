@@ -37,6 +37,11 @@ impl IntoTrackableError<io::Error> for ErrorKind {
         ErrorKind::Other.cause(e)
     }
 }
+impl<T> IntoTrackableError<(io::Error, T)> for ErrorKind {
+    fn into_trackable_error((e, _): (io::Error, T)) -> TrackableError<ErrorKind> {
+        ErrorKind::Other.cause(e)
+    }
+}
 impl IntoTrackableError<std::str::Utf8Error> for ErrorKind {
     fn into_trackable_error(e: std::str::Utf8Error) -> TrackableError<ErrorKind> {
         ErrorKind::Other.cause(e)

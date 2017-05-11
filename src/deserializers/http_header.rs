@@ -266,9 +266,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     {
         track!(self.deserialize_str(visitor))
     }
-
-    forward_to_deserialize_any! {
-        ignored_any
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
+        where V: Visitor<'de>
+    {
+        let _v = track_try!(self.next_value());
+        track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
 }
 impl<'de, 'a> de::MapAccess<'de> for &'a mut HttpHeaderDeserializer<'de> {

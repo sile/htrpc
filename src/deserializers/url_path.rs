@@ -13,11 +13,11 @@ use path_template::PathTemplate;
 pub struct UrlPathDeserializer<'de> {
     in_seq: bool,
     segments: Peekable<Split<'de, char>>,
-    template: &'de PathTemplate,
+    template: PathTemplate,
     index: usize,
 }
 impl<'de> UrlPathDeserializer<'de> {
-    pub fn new(template: &'de PathTemplate, url: &'de Url) -> Self {
+    pub fn new(template: PathTemplate, url: &'de Url) -> Self {
         UrlPathDeserializer {
             in_seq: false,
             segments: url.path_segments().expect("TODO").peekable(),
@@ -311,7 +311,7 @@ mod test {
         struct Args(String, usize);
 
         let url = Url::parse("http://localhost/foo/hello%20world/baz/3").unwrap();
-        let mut deserializer = UrlPathDeserializer::new(&path, &url);
+        let mut deserializer = UrlPathDeserializer::new(path, &url);
         let Args(v0, v1) = track_try_unwrap!(Args::deserialize(&mut deserializer));
         assert_eq!(v0, "hello world");
         assert_eq!(v1, 3);
