@@ -163,10 +163,17 @@ impl RoutingTree {
                     panic!("TODO error handling: {:?}", url)
                 }
             })
-            .then(|result| {
-                      //
-                      panic!();
-                      Ok(())
+            .then(|result| match result {
+                      Ok((response, body)) => {
+                // TODO: suport keep-alive
+                response
+                    .write_all_bytes(body)
+                    .map_err(|e| panic!("{:?}", e))
+                    .and_then(|res| res)
+                    .map_err(|e| panic!("{:?}", e))
+                    .map(|_| ())
+            }
+                      Err(e) => panic!("TODO: {:?}", e),
                   })
             .boxed()
     }

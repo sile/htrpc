@@ -1,4 +1,5 @@
 use fibers::net::TcpStream;
+use miasht::builtin::headers::ContentLength;
 use miasht::server::{Connection, ResponseBuilder, Response};
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
@@ -31,7 +32,9 @@ impl ResponseSerializer {
     }
     pub fn finish(self) -> Result<(Response<TcpStream>, Vec<u8>)> {
         track_assert!(self.response.is_some(), ErrorKind::Invalid);
-        Ok((self.response.unwrap().finish(), self.body))
+        let mut response = self.response.unwrap();
+        response.add_header(&ContentLength(self.body.len() as u64));
+        Ok((response.finish(), self.body))
     }
 }
 impl<'a> ser::Serializer for &'a mut ResponseSerializer {
