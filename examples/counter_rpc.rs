@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate fibers;
 extern crate futures;
+#[macro_use]
 extern crate htrpc;
 extern crate serde;
 #[macro_use]
@@ -8,16 +9,15 @@ extern crate serde_derive;
 #[macro_use]
 extern crate trackable;
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use clap::{App, Arg, SubCommand};
 use fibers::{Executor, Spawn, InPlaceExecutor};
 use futures::{BoxFuture, Future};
 use htrpc::Method;
 use htrpc::client::RpcClient;
-use htrpc::procedure::{Procedure, RpcInput, RpcInputBody, RpcOutput, ContentType, EntryPoint,
-                       HandleCall, Unreachable};
-use htrpc::path_template::{PathTemplate, PathSegment};
+use htrpc::procedure::{Procedure, RpcRequest, RpcResponse, EntryPoint, HandleRequest};
 use htrpc::server::RpcServerBuilder;
-use serde::{Serialize, Deserialize};
 
 fn main() {
     let matches = App::new("counter_rpc")
@@ -53,14 +53,15 @@ fn main() {
         let count_value = matches.value_of("COUNT_VALUE").unwrap();
 
         let mut client = RpcClient::new(server_addr.parse().unwrap());
-        let input = FetchAndAddInput {
-            counter: counter.to_string(),
-            value: count_value.parse().unwrap(),
+        let request = FetchAndAddRequest {
+            path: (counter.to_string(),),
+            query: AddValue { value: count_value.parse().unwrap() },
         };
-        let future = client.call::<FetchAndAdd>(input);
+        let future = client.call::<FetchAndAdd>(request);
 
         let monitor = executor.spawn_monitor(future);
-        executor.run_fiber(monitor).unwrap().unwrap();
+        let result = executor.run_fiber(monitor).unwrap();
+        println!("RESULT: {:?}", result);
     } else if let Some(_matches) = matches.subcommand_matches("server") {
         let mut builder = RpcServerBuilder::new(server_addr.parse().unwrap());
         track_try_unwrap!(builder.register(FetchAndAddHandler::new()));
@@ -74,22 +75,15 @@ fn main() {
 
 struct FetchAndAdd;
 impl Procedure for FetchAndAdd {
-    type Input = FetchAndAddInput;
-    type Output = FetchAndAddOutput;
-
+    type Request = FetchAndAddRequest;
+    type Response = FetchAndAddResponse;
+    fn method() -> Method {
+        Method::Put
+    }
     fn entry_point() -> EntryPoint {
-        use htrpc::path_template::PathSegment::*;
-        static SEGMENTS: &[PathSegment] = &[Val("counters"), Var];
-        EntryPoint {
-            method: Method::Put,
-            path: PathTemplate::new(SEGMENTS),
-        }
+        htrpc_entry_point!["counters", _]
     }
 }
-
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 struct FetchAndAddHandler {
@@ -100,92 +94,41 @@ impl FetchAndAddHandler {
         FetchAndAddHandler { counters: Arc::new(Mutex::new(HashMap::new())) }
     }
 }
-impl HandleCall for FetchAndAddHandler {
+impl HandleRequest for FetchAndAddHandler {
     type Procedure = FetchAndAdd;
-    fn handle_call(self,
-                   input: <Self::Procedure as Procedure>::Input)
-                   -> BoxFuture<<Self::Procedure as Procedure>::Output, Unreachable> {
+    fn handle_request(self,
+                      request: <Self::Procedure as Procedure>::Request)
+                      -> BoxFuture<<Self::Procedure as Procedure>::Response, htrpc::Error> {
+        let FetchAndAddRequest {
+            path: (name,),
+            query: AddValue { value },
+        } = request;
         let mut counters = self.counters.lock().expect("TODO");
-        *counters.entry(input.counter.clone()).or_insert(0) += input.value as usize;
+        *counters.entry(name.clone()).or_insert(0) += value as usize;
 
-        let value = counters.get(&input.counter).unwrap();
-        futures::finished(FetchAndAddOutput::Ok {
-                              header: EmptyHeader {},
-                              body: *value,
-                          })
-                .boxed()
+        let value = counters.get(&name).unwrap();
+        futures::finished(FetchAndAddResponse::Ok { body: *value }).boxed()
     }
 }
 
-// TODO:
-#[derive(Serialize, Deserialize)]
-enum FetchAndAddOutput {
-    Ok { header: EmptyHeader, body: usize },
+#[derive(Debug, Serialize, Deserialize)]
+enum FetchAndAddResponse {
+    Ok { body: usize },
 }
-impl RpcOutput for FetchAndAddOutput {}
+impl RpcResponse for FetchAndAddResponse {}
 
-#[derive(Debug)]
-struct FetchAndAddInput {
-    pub counter: String,
-    pub value: u8,
+#[derive(Debug, Serialize, Deserialize)]
+struct FetchAndAddRequest {
+    pub path: (String,),
+    pub query: AddValue,
 }
-impl RpcInput for FetchAndAddInput {
-    type Path = (String,);
-    type Query = AddValue;
-    type Header = EmptyHeader;
-    type Body = EmptyBody;
-    fn compose(path: Self::Path,
-               query: Self::Query,
-               _header: Self::Header,
-               _body: Self::Body)
-               -> htrpc::Result<Self> {
-        Ok(FetchAndAddInput {
-               counter: path.0,
-               value: query.value,
-           })
-    }
-    fn decompose(self) -> htrpc::Result<(Self::Path, Self::Query, Self::Header, Self::Body)> {
-        let path = (self.counter,);
-        let query = AddValue { value: self.value };
-        let header = EmptyHeader {};
-        let body = EmptyBody;
-        Ok((path, query, header, body))
-    }
-}
+impl RpcRequest for FetchAndAddRequest {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct AddValue {
     #[serde(default = "one")]
     pub value: u8,
 }
 fn one() -> u8 {
     1
-}
-
-#[derive(Serialize, Deserialize)]
-struct EmptyHeader {}
-
-#[derive(Serialize, Deserialize)]
-struct EmptyBody;
-impl RpcInputBody for EmptyBody {
-    type ContentType = ContentTypeVoid;
-}
-
-struct ContentTypeVoid;
-impl ContentType for ContentTypeVoid {
-    fn mime() -> Option<&'static str> {
-        None
-    }
-    fn serialize_body<T>(_body: T) -> htrpc::Result<Vec<u8>>
-        where T: Serialize
-    {
-        Ok(Vec::new())
-    }
-    fn deserialize_body<T>(_bytes: Vec<u8>) -> htrpc::Result<T>
-        where T: for<'a> Deserialize<'a>
-    {
-        use serde::de::IntoDeserializer;
-        let de = ().into_deserializer();
-        track!(T::deserialize(de))
-    }
 }

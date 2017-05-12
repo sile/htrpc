@@ -52,6 +52,11 @@ impl IntoTrackableError<std::str::ParseBoolError> for ErrorKind {
         ErrorKind::Other.cause(e)
     }
 }
+impl IntoTrackableError<std::string::FromUtf8Error> for ErrorKind {
+    fn into_trackable_error(e: std::string::FromUtf8Error) -> TrackableError<ErrorKind> {
+        ErrorKind::Other.cause(e)
+    }
+}
 impl IntoTrackableError<std::num::ParseIntError> for ErrorKind {
     fn into_trackable_error(e: std::num::ParseIntError) -> TrackableError<ErrorKind> {
         ErrorKind::Other.cause(e)

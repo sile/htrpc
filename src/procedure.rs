@@ -1,76 +1,32 @@
 use futures::BoxFuture;
 use serde::{Serialize, Deserialize};
 
-#[allow(unused_imports)]
-use {Result, Method, Status};
+use {Error, Method};
 use path_template::PathTemplate;
 
-// TODO
-#[derive(Debug)]
-pub struct Unreachable {
-    _cannot_instantiate: (),
-}
-
 pub trait Procedure {
-    // TODO: s/input/request/
-    type Input: RpcInput;
-    type Output: RpcOutput;
-    fn entry_point() -> EntryPoint;
+    type Request: RpcRequest;
+    type Response: RpcResponse;
+    fn method() -> Method;
+    fn entry_point() -> PathTemplate;
 }
-pub trait HandleCall: Clone + Send + 'static {
+
+pub trait HandleRequest: Clone + Send + 'static {
     type Procedure: Procedure;
-    fn handle_call(self,
-                   input: <Self::Procedure as Procedure>::Input)
-                   -> BoxFuture<<Self::Procedure as Procedure>::Output, Unreachable>;
+    fn handle_request(self,
+                      request: <Self::Procedure as Procedure>::Request)
+                      -> BoxFuture<<Self::Procedure as Procedure>::Response, Error>;
 }
 
-#[derive(Debug)]
-pub struct EntryPoint {
-    pub method: Method,
-    pub path: PathTemplate,
-}
+// TODO:
+pub type EntryPoint = PathTemplate;
 
-pub trait ContentType {
-    fn mime() -> Option<&'static str>;
-    fn serialize_body<T>(body: T) -> Result<Vec<u8>> where T: Serialize;
-    fn deserialize_body<T>(bytes: Vec<u8>) -> Result<T> where T: for<'a> Deserialize<'a>;
-}
+// TODO: doc for format convention
+//
+// TODO: s/RpcRequest/Request/
+pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> {}
 
-pub trait RpcInputBody: Serialize + for<'a> Deserialize<'a> {
-    type ContentType: ContentType;
-}
-
-pub trait RpcInput: Sized {
-    type Path: Serialize + for<'a> Deserialize<'a>;
-    type Query: Serialize + for<'a> Deserialize<'a>;
-    type Header: Serialize + for<'a> Deserialize<'a>;
-    type Body: RpcInputBody;
-
-    fn compose(path: Self::Path,
-               query: Self::Query,
-               header: Self::Header,
-               body: Self::Body)
-               -> Result<Self>;
-    fn decompose(self) -> Result<(Self::Path, Self::Query, Self::Header, Self::Body)>;
-
-    fn content_type() -> Option<&'static str> {
-        <Self::Body as RpcInputBody>::ContentType::mime()
-    }
-    fn serialize_body<T>(body: T) -> Result<Vec<u8>>
-        where T: Serialize
-    {
-        <Self::Body as RpcInputBody>::ContentType::serialize_body(body)
-    }
-    fn deserialize_body<T>(bytes: Vec<u8>) -> Result<T>
-        where T: for<'a> Deserialize<'a>
-    {
-        <Self::Body as RpcInputBody>::ContentType::deserialize_body(bytes)
-    }
-}
-
-// enum Response {
-//     Ok{header, body},
-//     NotFound{header},
-//     Default{body},
-// }
-pub trait RpcOutput: Serialize + for<'a> Deserialize<'a> {}
+// TODO: doc for format convention
+//
+// TODO: impl From<SystemError>
+pub trait RpcResponse: Serialize + for<'a> Deserialize<'a> {}

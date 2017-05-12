@@ -1,4 +1,26 @@
-#[derive(Debug, Clone, Copy)]
+#[macro_export]
+macro_rules! htrpc_entry_point {
+    ($($segment:tt),*) => {
+        {
+            static SEGMENTS: &[$crate::path_template::PathSegment] =
+                &[$(htrpc_expand_segment!($segment)),*];
+            $crate::path_template::PathTemplate::new(SEGMENTS)
+        }
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! htrpc_expand_segment {
+    (_) => {
+        $crate::path_template::PathSegment::Var
+    };
+    ($s:expr) => {
+        $crate::path_template::PathSegment::Val($s)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PathTemplate {
     segments: &'static [PathSegment],
 }
@@ -47,6 +69,8 @@ mod test {
     fn it_works() {
         use self::PathSegment::*;
         static SEGMENTS: &[PathSegment] = &[Val("foo"), Var, Val("baz")];
-        let _path = PathTemplate::new(SEGMENTS);
+        let path0 = PathTemplate::new(SEGMENTS);
+        let path1 = htrpc_entry_point!["foo", _, "baz"];
+        assert_eq!(path0, path1);
     }
 }
