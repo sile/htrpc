@@ -4,8 +4,9 @@ use miasht::server::{Connection, ResponseBuilder, Response};
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
 
-use {Result, Error, ErrorKind, Status};
+use {Result, Error, ErrorKind};
 use serializers::{HttpBodySerializer, HttpHeaderSerializer};
+use types::Status;
 
 // enum Response {
 //     Status0{header, body},

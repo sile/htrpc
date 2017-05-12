@@ -6,18 +6,17 @@ use serde::de::{self, Visitor};
 use trackable::error::IntoTrackableError;
 use url::{self, Url};
 
-use {Result, Error, ErrorKind};
-use path_template::PathTemplate;
+use {Result, Error, ErrorKind, EntryPoint};
 
 #[derive(Debug)]
 pub struct UrlPathDeserializer<'de> {
     in_seq: bool,
     segments: Peekable<Split<'de, char>>,
-    template: PathTemplate,
+    template: EntryPoint,
     index: usize,
 }
 impl<'de> UrlPathDeserializer<'de> {
-    pub fn new(template: PathTemplate, url: &'de Url) -> Self {
+    pub fn new(template: EntryPoint, url: &'de Url) -> Self {
         UrlPathDeserializer {
             in_seq: false,
             segments: url.path_segments().expect("TODO").peekable(),
@@ -298,20 +297,18 @@ fn parse_escaped_str<T: std::str::FromStr>(s: &str) -> Result<T>
 mod test {
     use serde::Deserialize;
     use url::Url;
-    use path_template::{PathTemplate, PathSegment};
+
     use super::*;
 
     #[test]
     fn it_works() {
-        use path_template::PathSegment::*;
-        static SEGMENTS: &[PathSegment] = &[Val("foo"), Var, Val("baz"), Var];
-        let path = PathTemplate::new(SEGMENTS);
+        let entry_point = htrpc_entry_point!["foo", _, "baz", _];
 
         #[derive(Deserialize)]
         struct Args(String, usize);
 
         let url = Url::parse("http://localhost/foo/hello%20world/baz/3").unwrap();
-        let mut deserializer = UrlPathDeserializer::new(path, &url);
+        let mut deserializer = UrlPathDeserializer::new(entry_point, &url);
         let Args(v0, v1) = track_try_unwrap!(Args::deserialize(&mut deserializer));
         assert_eq!(v0, "hello world");
         assert_eq!(v1, 3);

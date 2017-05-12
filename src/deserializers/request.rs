@@ -3,10 +3,9 @@ use miasht::server::Request;
 use serde::de::{self, Visitor};
 use url::Url;
 
-use {Result, Error, ErrorKind};
+use {Result, Error, ErrorKind, EntryPoint};
 use deserializers::{UrlPathDeserializer, UrlQueryDeserializer, HttpHeaderDeserializer,
                     HttpBodyDeserializer};
-use path_template::PathTemplate;
 
 // struct Request { path, query, header, body }
 
@@ -22,13 +21,14 @@ enum Phase {
 #[derive(Debug)]
 pub struct RequestDeserializer<'de> {
     phase: Phase,
-    path_template: PathTemplate,
+    // TODO: name
+    path_template: EntryPoint,
     url: &'de Url,
     request: &'de Request<TcpStream>,
     body: Vec<u8>,
 }
 impl<'de> RequestDeserializer<'de> {
-    pub fn new(path_template: PathTemplate,
+    pub fn new(path_template: EntryPoint,
                url: &'de Url,
                request: &'de Request<TcpStream>,
                body: Vec<u8>)

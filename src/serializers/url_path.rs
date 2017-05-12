@@ -2,17 +2,16 @@ use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use url::PathSegmentsMut;
 
-use {Result, Error, ErrorKind};
-use path_template::PathTemplate;
+use {Result, Error, ErrorKind, EntryPoint};
 
 pub struct UrlPathSerializer<'a> {
     segments: PathSegmentsMut<'a>,
-    template: &'a PathTemplate,
+    template: &'a EntryPoint,
     index: usize,
     is_started: bool,
 }
 impl<'a> UrlPathSerializer<'a> {
-    pub fn new(template: &'a PathTemplate, segments: PathSegmentsMut<'a>) -> Self {
+    pub fn new(template: &'a EntryPoint, segments: PathSegmentsMut<'a>) -> Self {
         UrlPathSerializer {
             segments,
             template,
@@ -241,21 +240,19 @@ impl<'a, 'b> ser::SerializeTupleVariant for &'a mut UrlPathSerializer<'b> {
 #[cfg(test)]
 mod test {
     use url::Url;
-    use path_template::{PathTemplate, PathSegment};
     use super::*;
 
     #[test]
     fn it_works() {
-        use path_template::PathSegment::*;
-        static SEGMENTS: &[PathSegment] = &[Val("foo"), Var, Val("baz"), Var];
-        let path = PathTemplate::new(SEGMENTS);
+        let entry_point = htrpc_entry_point!["foo", _, "baz", _];
 
         #[derive(Serialize)]
         struct Args(&'static str, usize);
 
         let mut url = Url::parse("http://localhost/").unwrap();
         {
-            let mut serializer = UrlPathSerializer::new(&path, url.path_segments_mut().unwrap());
+            let mut serializer = UrlPathSerializer::new(&entry_point,
+                                                        url.path_segments_mut().unwrap());
             track_try_unwrap!(Args("hello world", 3).serialize(&mut serializer));
         }
         assert_eq!(url.as_str(), "http://localhost/foo/hello%20world/baz/3");

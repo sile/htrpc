@@ -12,17 +12,44 @@ extern crate serde_derive;
 extern crate trackable;
 extern crate url;
 
-pub use miasht::{Method, Status};
-pub use error::{Error, ErrorKind};
+// TODO
+#[macro_export]
+macro_rules! htrpc_entry_point {
+    ($($segment:tt),*) => {
+        {
+            static SEGMENTS: &[$crate::types::PathSegment] =
+                &[$(htrpc_expand_segment!($segment)),*];
+            $crate::EntryPoint::new(SEGMENTS)
+        }
+    }
+}
 
-pub mod client;
-pub mod server;
-pub mod procedure;
+#[doc(hidden)]
+#[macro_export]
+macro_rules! htrpc_expand_segment {
+    (_) => {
+        $crate::types::PathSegment::Var
+    };
+    ($s:expr) => {
+        $crate::types::PathSegment::Val($s)
+    }
+}
+
+pub use miasht::Method;
+
+pub use client::RpcClient;
+pub use error::{Error, ErrorKind};
+pub use procedure::{EntryPoint, Procedure};
+pub use procedure::{HandleRequest, RpcRequest, RpcResponse};
+pub use server::{RpcServer, RpcServerBuilder};
 
 pub mod deserializers;
-pub mod path_template;
 pub mod serializers;
+pub mod types;
 
+mod client;
 mod error;
+mod procedure;
+mod server;
 
 pub type Result<T> = ::std::result::Result<T, Error>;

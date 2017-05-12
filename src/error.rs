@@ -29,6 +29,7 @@ impl de::Error for Error {
 #[derive(Debug, Clone)]
 pub enum ErrorKind {
     Invalid,
+    Timeout,
     Other,
 }
 impl TrackableErrorKind for ErrorKind {}

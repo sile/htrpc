@@ -14,10 +14,8 @@ use std::sync::{Arc, Mutex};
 use clap::{App, Arg, SubCommand};
 use fibers::{Executor, Spawn, InPlaceExecutor};
 use futures::{BoxFuture, Future};
-use htrpc::Method;
-use htrpc::client::RpcClient;
-use htrpc::procedure::{Procedure, RpcRequest, RpcResponse, EntryPoint, HandleRequest};
-use htrpc::server::RpcServerBuilder;
+use htrpc::{Method, RpcClient, RpcServerBuilder};
+use htrpc::{Procedure, RpcRequest, RpcResponse, EntryPoint, HandleRequest};
 
 fn main() {
     let matches = App::new("counter_rpc")
@@ -96,9 +94,8 @@ impl FetchAndAddHandler {
 }
 impl HandleRequest for FetchAndAddHandler {
     type Procedure = FetchAndAdd;
-    fn handle_request(self,
-                      request: <Self::Procedure as Procedure>::Request)
-                      -> BoxFuture<<Self::Procedure as Procedure>::Response, htrpc::Error> {
+    type Future = BoxFuture<FetchAndAddResponse, htrpc::Error>;
+    fn handle_request(self, request: <Self::Procedure as Procedure>::Request) -> Self::Future {
         let FetchAndAddRequest {
             path: (name,),
             query: AddValue { value },

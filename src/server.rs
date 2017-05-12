@@ -123,7 +123,7 @@ type HandleRequestFn =
     Box<Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRequestResult + Send + 'static>;
 
 #[derive(Clone)]
-pub struct RoutingTree {
+struct RoutingTree {
     trie: Arc<Trie>,
 }
 unsafe impl Send for RoutingTree {}
@@ -168,7 +168,7 @@ impl RoutingTree {
     }
 }
 
-pub struct RoutingTreeBuilder {
+ struct RoutingTreeBuilder {
     trie: Trie,
 }
 impl RoutingTreeBuilder {
@@ -186,7 +186,7 @@ impl RoutingTreeBuilder {
     }
 }
 
-pub struct Trie {
+struct Trie {
     root: TrieNode,
 }
 impl Trie {
@@ -196,7 +196,7 @@ impl Trie {
     pub fn insert(&mut self, method: Method, entry_point: &EntryPoint, handler: HandleRequestFn) -> Result<()> {
         let mut node = &mut self.root;
         for segment in entry_point.segments() {
-            use path_template::PathSegment::*;
+            use types::PathSegment::*;
             let key = match *segment {
                 Val(s) => Some(s),
                 Var => None,
@@ -218,7 +218,7 @@ impl Trie {
     }
 }
 
-pub struct TrieNode {
+struct TrieNode {
     children: HashMap<Option<&'static str>, TrieNode>,
     leafs: HashMap<Method, HandleRequestFn>,
 }
