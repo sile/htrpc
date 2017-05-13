@@ -7,8 +7,6 @@ use {Result, Error, ErrorKind, EntryPoint};
 use deserializers::{UrlPathDeserializer, UrlQueryDeserializer, HttpHeaderDeserializer,
                     HttpBodyDeserializer};
 
-// struct Request { path, query, header, body }
-
 #[derive(Debug, Clone, Copy)]
 enum Phase {
     Init,
@@ -18,31 +16,32 @@ enum Phase {
     Body,
 }
 
+/// `Deserializer` implementation for RPC request.
 #[derive(Debug)]
-pub struct RequestDeserializer<'de> {
+pub struct RpcRequestDeserializer<'de> {
     phase: Phase,
-    // TODO: name
-    path_template: EntryPoint,
+    entry_point: EntryPoint,
     url: &'de Url,
     request: &'de Request<TcpStream>,
     body: Vec<u8>,
 }
-impl<'de> RequestDeserializer<'de> {
-    pub fn new(path_template: EntryPoint,
+impl<'de> RpcRequestDeserializer<'de> {
+    /// Makes a new `RpcRequestDeserializer` instance.
+    pub fn new(entry_point: EntryPoint,
                url: &'de Url,
                request: &'de Request<TcpStream>,
                body: Vec<u8>)
                -> Self {
-        RequestDeserializer {
+        RpcRequestDeserializer {
             phase: Phase::Init,
-            path_template,
+            entry_point,
             url,
             request,
             body,
         }
     }
 }
-impl<'de, 'a> de::Deserializer<'de> for &'a mut RequestDeserializer<'de> {
+impl<'de, 'a> de::Deserializer<'de> for &'a mut RpcRequestDeserializer<'de> {
     type Error = Error;
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
@@ -202,7 +201,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut RequestDeserializer<'de> {
         track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
 }
-impl<'de, 'a> de::MapAccess<'de> for &'a mut RequestDeserializer<'de> {
+impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcRequestDeserializer<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -246,7 +245,7 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RequestDeserializer<'de> {
         match self.phase {
             Phase::Init => unreachable!(),
             Phase::Path => {
-                let mut de = UrlPathDeserializer::new(self.path_template, self.url);
+                let mut de = track_try!(UrlPathDeserializer::new(self.entry_point, self.url));
                 let v = track_try!(seed.deserialize(&mut de));
                 Ok(v)
             }

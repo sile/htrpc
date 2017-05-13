@@ -10,10 +10,12 @@ pub trait Procedure {
     fn entry_point() -> EntryPoint;
 }
 
-pub trait HandleRequest: Clone + Send + 'static {
-    type Procedure: Procedure;
-    type Future: Future<Item = <Self::Procedure as Procedure>::Response, Error = Error> + Send;
-    fn handle_request(self, request: <Self::Procedure as Procedure>::Request) -> Self::Future;
+// HandleRpc(?)
+pub trait HandleRequest<P>: Clone + Send + 'static
+    where P: Procedure
+{
+    type Future: Future<Item = <P as Procedure>::Response, Error = Error> + Send + 'static;
+    fn handle_request(self, request: <P as Procedure>::Request) -> Self::Future;
 }
 
 // TODO: doc for format convention

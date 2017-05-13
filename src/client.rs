@@ -9,7 +9,7 @@ use miasht::client::{Connection, Response};
 use serde::ser::Serialize;
 
 use Error;
-use deserializers::ResponseDeserializer;
+use deserializers::RpcResponseDeserializer;
 use procedure::Procedure;
 use serializers::RequestSerializer;
 
@@ -70,7 +70,7 @@ impl<P> Future for Call<P>
                 }
                 Async::Ready(Phase::D((response, body))) => {
                     use serde::Deserialize;
-                    let mut deserializer = ResponseDeserializer::new(&response, body);
+                    let mut deserializer = RpcResponseDeserializer::new(&response, body);
                     let response = track_try!(P::Response::deserialize(&mut deserializer));
                     return Ok(Async::Ready(response));
                 }

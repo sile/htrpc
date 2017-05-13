@@ -34,6 +34,7 @@ impl ResponseSerializer {
     pub fn finish(self) -> Result<(Response<TcpStream>, Vec<u8>)> {
         track_assert!(self.response.is_some(), ErrorKind::Invalid);
         let mut response = self.response.unwrap();
+        // TODO: add Connection header field
         response.add_header(&ContentLength(self.body.len() as u64));
         Ok((response.finish(), self.body))
     }

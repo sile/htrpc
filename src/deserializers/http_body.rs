@@ -4,11 +4,13 @@ use trackable::error::IntoTrackableError;
 
 use {Result, Error, ErrorKind};
 
+/// `Deserializer` implementation for HTTP body.
 #[derive(Debug)]
 pub struct HttpBodyDeserializer {
     body: Vec<u8>,
 }
 impl HttpBodyDeserializer {
+    /// Makes a new `HttpBodyDeserializer` instance.
     pub fn new(body: Vec<u8>) -> Self {
         HttpBodyDeserializer { body }
     }

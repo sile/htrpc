@@ -92,10 +92,9 @@ impl FetchAndAddHandler {
         FetchAndAddHandler { counters: Arc::new(Mutex::new(HashMap::new())) }
     }
 }
-impl HandleRequest for FetchAndAddHandler {
-    type Procedure = FetchAndAdd;
+impl HandleRequest<FetchAndAdd> for FetchAndAddHandler {
     type Future = BoxFuture<FetchAndAddResponse, htrpc::Error>;
-    fn handle_request(self, request: <Self::Procedure as Procedure>::Request) -> Self::Future {
+    fn handle_request(self, request: FetchAndAddRequest) -> Self::Future {
         let FetchAndAddRequest {
             path: (name,),
             query: AddValue { value },

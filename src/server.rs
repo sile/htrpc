@@ -14,7 +14,7 @@ use serde::Deserialize;
 use url::Url;
 
 use {Result, Error, Method, ErrorKind};
-use deserializers::RequestDeserializer;
+use deserializers::RpcRequestDeserializer;
 use procedure::{Procedure, HandleRequest, EntryPoint};
 use serializers::ResponseSerializer;
 
@@ -29,27 +29,27 @@ impl RpcServerBuilder {
             router: RoutingTreeBuilder::new(),
         }
     }
-    pub fn register<H>(&mut self, handler: H) -> Result<()>
-        where H: HandleRequest
+    pub fn register<P, H>(&mut self, handler: H) -> Result<()>
+        where P: Procedure,
+              H: HandleRequest<P>
     {
         let handle_request = move |url, request, body| -> HandleRequestResult {
             // TODO: error handling
-            let rpc_request =
-                track_try_unwrap!(request_to_rpc_request::<H::Procedure>(&url, &request, body));
+            let rpc_request = track_try_unwrap!(request_to_rpc_request::<P>(&url, &request, body));
             let handler = handler.clone();
             handler
                 .handle_request(rpc_request)
                 .then(move |result| {
                           let rpc_response = result.expect("Unreachable");
                           let response =
-                              track_try_unwrap!(rpc_response_to_response::<H::Procedure>(request.finish(),
-                                                                                   rpc_response));
+                              track_try_unwrap!(rpc_response_to_response::<P>(request.finish(),
+                                                                              rpc_response));
                           Ok(response)
                       })
                 .boxed()
         };
         track_try!(self.router
-                   .register(H::Procedure::method(), H::Procedure::entry_point(), handle_request));
+                       .register(P::method(), P::entry_point(), handle_request));
         Ok(())
     }
     pub fn start<S>(self, spawner: S) -> RpcServer
@@ -106,12 +106,12 @@ fn request_to_rpc_request<P: Procedure>(url: &Url,
                                         request: &Request<TcpStream>,
                                         body: Vec<u8>)
                                         -> Result<P::Request> {
-    let mut de = RequestDeserializer::new(P::entry_point(), url, request, body);
+    let mut de = RpcRequestDeserializer::new(P::entry_point(), url, request, body);
     track!(Deserialize::deserialize(&mut de))
 }
 fn rpc_response_to_response<P: Procedure>(connection: Connection<TcpStream>,
                                           rpc_response: P::Response)
-                                    -> Result<(Response<TcpStream>, Vec<u8>)> {
+                                          -> Result<(Response<TcpStream>, Vec<u8>)> {
     use serde::Serialize;
     let mut serializer = ResponseSerializer::new(connection);
     track_try!(rpc_response.serialize(&mut serializer));
@@ -168,7 +168,7 @@ impl RoutingTree {
     }
 }
 
- struct RoutingTreeBuilder {
+struct RoutingTreeBuilder {
     trie: Trie,
 }
 impl RoutingTreeBuilder {
@@ -178,7 +178,11 @@ impl RoutingTreeBuilder {
     pub fn finish(self) -> RoutingTree {
         RoutingTree { trie: Arc::new(self.trie) }
     }
-    pub fn register<H: Send + 'static>(&mut self, method: Method, entry_point: EntryPoint, handler: H) -> Result<()>
+    pub fn register<H: Send + 'static>(&mut self,
+                                       method: Method,
+                                       entry_point: EntryPoint,
+                                       handler: H)
+                                       -> Result<()>
         where H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRequestResult
     {
         track_try!(self.trie.insert(method, &entry_point, Box::new(handler)));
@@ -193,7 +197,11 @@ impl Trie {
     pub fn new() -> Self {
         Trie { root: TrieNode::new() }
     }
-    pub fn insert(&mut self, method: Method, entry_point: &EntryPoint, handler: HandleRequestFn) -> Result<()> {
+    pub fn insert(&mut self,
+                  method: Method,
+                  entry_point: &EntryPoint,
+                  handler: HandleRequestFn)
+                  -> Result<()> {
         let mut node = &mut self.root;
         for segment in entry_point.segments() {
             use types::PathSegment::*;
@@ -208,8 +216,7 @@ impl Trie {
                 .entry(key)
                 .or_insert_with(|| TrieNode::new());
         }
-        track_assert!(!node.leafs.contains_key(&method),
-                      ErrorKind::Invalid);
+        track_assert!(!node.leafs.contains_key(&method), ErrorKind::Invalid);
         node.leafs.insert(method, handler);
         Ok(())
     }

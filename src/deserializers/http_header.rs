@@ -24,6 +24,7 @@ impl Phase {
     }
 }
 
+/// `Deserializer` implementation for HTTP header.
 #[derive(Debug)]
 pub struct HttpHeaderDeserializer<'de> {
     in_map: bool,
@@ -31,6 +32,7 @@ pub struct HttpHeaderDeserializer<'de> {
     headers: Peekable<HeadersIter<'de>>,
 }
 impl<'de> HttpHeaderDeserializer<'de> {
+    /// Makes a new `HttpHeaderDeserializer` instance.
     pub fn new(headers: &'de Headers<'de>) -> Self {
         HttpHeaderDeserializer {
             in_map: false,
@@ -41,8 +43,7 @@ impl<'de> HttpHeaderDeserializer<'de> {
     fn is_end_of_header(&mut self) -> bool {
         self.headers.peek().is_none()
     }
-    // TODO: rename
-    fn next_value(&mut self) -> Result<&'de [u8]> {
+    fn next_bytes(&mut self) -> Result<&'de [u8]> {
         if let Some(&(k, v)) = self.headers.peek() {
             let v = match self.phase {
                 Phase::Key => k.as_bytes(),
@@ -69,7 +70,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_bool(v))
     }
@@ -77,7 +78,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_i8(v))
     }
@@ -85,7 +86,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_i16(v))
     }
@@ -93,7 +94,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_i32(v))
     }
@@ -101,7 +102,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_i64(v))
     }
@@ -109,7 +110,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_u8(v))
     }
@@ -117,7 +118,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_u16(v))
     }
@@ -125,7 +126,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_u32(v))
     }
@@ -133,7 +134,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_u64(v))
     }
@@ -141,7 +142,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_f32(v))
     }
@@ -149,7 +150,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(parse_slice(v));
         track!(visitor.visit_f64(v))
     }
@@ -163,7 +164,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         let v = track_try!(std::str::from_utf8(v));
         track!(visitor.visit_borrowed_str(v))
     }
@@ -177,7 +178,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let v = track_try!(self.next_value());
+        let v = track_try!(self.next_bytes());
         track!(visitor.visit_borrowed_bytes(v))
     }
 
@@ -269,7 +270,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        let _v = track_try!(self.next_value());
+        let _v = track_try!(self.next_bytes());
         track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
 }

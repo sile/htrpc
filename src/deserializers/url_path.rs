@@ -8,48 +8,49 @@ use url::{self, Url};
 
 use {Result, Error, ErrorKind, EntryPoint};
 
+/// `Deserializer` implementation for URL path.
 #[derive(Debug)]
 pub struct UrlPathDeserializer<'de> {
     in_seq: bool,
     segments: Peekable<Split<'de, char>>,
-    template: EntryPoint,
+    entry_point: EntryPoint,
     index: usize,
+    free_vars: usize,
 }
 impl<'de> UrlPathDeserializer<'de> {
-    pub fn new(template: EntryPoint, url: &'de Url) -> Self {
-        UrlPathDeserializer {
-            in_seq: false,
-            segments: url.path_segments().expect("TODO").peekable(),
-            template,
-            index: 0,
-        }
+    /// Makes a new `UrlPathDeserializer` instance.
+    pub fn new(entry_point: EntryPoint, url: &'de Url) -> Result<Self> {
+        let segments = track_try!(url.path_segments().ok_or(ErrorKind::Invalid));
+        Ok(UrlPathDeserializer {
+               in_seq: false,
+               segments: segments.peekable(),
+               entry_point,
+               index: 0,
+               free_vars: entry_point.var_count(),
+           })
     }
     fn is_end_of_segment(&mut self) -> bool {
         self.segments.peek().is_none()
     }
-    fn is_end_of_parameter(&mut self) -> bool {
-        // TODO: optimize
-        !self.template.is_var_remaning(self.index)
-    }
-
     fn finish(&mut self) -> Result<()> {
-        for i in self.index..self.template.len() {
-            let expected = track_try!(self.template.get_val(i).ok_or(ErrorKind::Invalid));
+        for i in self.index..self.entry_point.len() {
+            let expected = track_try!(self.entry_point.get_val(i).ok_or(ErrorKind::Invalid));
             let actual = track_try!(self.segments.next().ok_or(ErrorKind::Invalid));
             track_assert_eq!(actual, expected, ErrorKind::Invalid);
         }
         Ok(())
     }
     fn next_value(&mut self) -> Result<&'de str> {
-        track_assert!(self.index < self.template.len(), ErrorKind::Invalid);
+        track_assert!(self.index < self.entry_point.len(), ErrorKind::Invalid);
         track_assert!(!self.is_end_of_segment(), ErrorKind::Invalid);
         let i = self.index;
         self.index += 1;
-        if let Some(expected) = self.template.get_val(i) {
+        if let Some(expected) = self.entry_point.get_val(i) {
             let s = self.segments.next().unwrap();
             track_assert_eq!(s, expected, ErrorKind::Invalid);
             self.next_value()
         } else {
+            self.free_vars -= 1;
             let s = self.segments.next().unwrap();
             Ok(s)
         }
@@ -275,7 +276,7 @@ impl<'de, 'a> de::SeqAccess<'de> for &'a mut UrlPathDeserializer<'de> {
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
         where T: de::DeserializeSeed<'de>
     {
-        if self.is_end_of_parameter() {
+        if self.free_vars == 0 {
             track_try!(self.finish());
             Ok(None)
         } else {

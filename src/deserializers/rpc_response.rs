@@ -5,17 +5,6 @@ use serde::de::{self, Visitor};
 use {Result, Error, ErrorKind};
 use deserializers::{HttpHeaderDeserializer, HttpBodyDeserializer};
 
-// enum Response {
-//     Status0{header, body},
-//     Status1{header},
-//     Status2{body},
-//     Status3
-// }
-//
-// or
-//
-// struct Response { header, body}, etc
-
 #[derive(Debug, Clone, Copy)]
 enum Phase {
     Init,
@@ -23,22 +12,24 @@ enum Phase {
     Body,
 }
 
+/// `Deserializer` implementation for RPC response.
 #[derive(Debug)]
-pub struct ResponseDeserializer<'de> {
+pub struct RpcResponseDeserializer<'de> {
     phase: Phase,
     response: &'de Response<TcpStream>,
     body: Vec<u8>,
 }
-impl<'de> ResponseDeserializer<'de> {
+impl<'de> RpcResponseDeserializer<'de> {
+    /// Makes a new `RpcResponseDeserializer` instance.
     pub fn new(response: &'de Response<TcpStream>, body: Vec<u8>) -> Self {
-        ResponseDeserializer {
+        RpcResponseDeserializer {
             phase: Phase::Init,
             response,
             body,
         }
     }
 }
-impl<'de, 'a> de::Deserializer<'de> for &'a mut ResponseDeserializer<'de> {
+impl<'de, 'a> de::Deserializer<'de> for &'a mut RpcResponseDeserializer<'de> {
     type Error = Error;
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
@@ -198,7 +189,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ResponseDeserializer<'de> {
         track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
 }
-impl<'de, 'a> de::MapAccess<'de> for &'a mut ResponseDeserializer<'de> {
+impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -245,7 +236,7 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut ResponseDeserializer<'de> {
     }
 }
 
-struct Enum<'de: 'a, 'a>(&'a mut ResponseDeserializer<'de>);
+struct Enum<'de: 'a, 'a>(&'a mut RpcResponseDeserializer<'de>);
 impl<'de, 'a> de::EnumAccess<'de> for Enum<'de, 'a> {
     type Error = Error;
     type Variant = Self;

@@ -1,3 +1,8 @@
+//! HTTP based RPC library.
+//!
+//! This crate provides a thin framework to easily implement type-safe RPC channels
+//! for client/server model communication.
+#![warn(missing_docs)]
 extern crate fibers;
 extern crate futures;
 extern crate handy_async;
