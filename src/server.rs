@@ -16,7 +16,7 @@ use url::Url;
 use {Result, Error, Method, ErrorKind};
 use deserializers::RpcRequestDeserializer;
 use procedure::{Procedure, HandleRequest, EntryPoint};
-use serializers::ResponseSerializer;
+use serializers::RpcResponseSerializer;
 
 pub struct RpcServerBuilder {
     bind_addr: SocketAddr,
@@ -113,7 +113,7 @@ fn rpc_response_to_response<P: Procedure>(connection: Connection<TcpStream>,
                                           rpc_response: P::Response)
                                           -> Result<(Response<TcpStream>, Vec<u8>)> {
     use serde::Serialize;
-    let mut serializer = ResponseSerializer::new(connection);
+    let mut serializer = RpcResponseSerializer::new(connection);
     track_try!(rpc_response.serialize(&mut serializer));
     track!(serializer.finish())
 }

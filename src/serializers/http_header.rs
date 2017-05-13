@@ -5,6 +5,7 @@ use serde::ser::Impossible;
 
 use {Result, Error, ErrorKind};
 
+/// `Serializer` implementation for HTTP header.
 #[derive(Debug)]
 pub struct HttpHeaderSerializer<'a> {
     is_first: bool,
@@ -12,6 +13,7 @@ pub struct HttpHeaderSerializer<'a> {
     headers: HeadersMut<'a>,
 }
 impl<'a> HttpHeaderSerializer<'a> {
+    /// Makes a new `HttpHeaderSerializer` instance.
     pub fn new(headers: HeadersMut<'a>) -> Self {
         HttpHeaderSerializer {
             is_first: true,
@@ -19,6 +21,7 @@ impl<'a> HttpHeaderSerializer<'a> {
             headers,
         }
     }
+
     fn append(&mut self, key_or_val: Cow<str>) {
         if let Some(key) = self.key.take() {
             let val = &key_or_val;

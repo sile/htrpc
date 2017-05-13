@@ -11,7 +11,7 @@ use serde::ser::Serialize;
 use Error;
 use deserializers::RpcResponseDeserializer;
 use procedure::Procedure;
-use serializers::RequestSerializer;
+use serializers::RpcRequestSerializer;
 
 // TODO: Support keep-alive
 #[derive(Debug)]
@@ -56,7 +56,7 @@ impl<P> Future for Call<P>
                 Async::Ready(Phase::A(connection)) => {
                     let entry_point = P::entry_point();
                     let request = self.request.take().unwrap();
-                    let mut ser = RequestSerializer::new(connection, P::method(), entry_point);
+                    let mut ser = RpcRequestSerializer::new(connection, P::method(), entry_point);
                     track_try!(request.serialize(&mut ser));
                     let (request, body) = track_try!(ser.finish());
                     Phase::B(request.write_all_bytes(body).and_then(|r| r).boxed())

@@ -1,45 +1,48 @@
 use fibers::net::TcpStream;
 use miasht::builtin::headers::ContentLength;
-use miasht::server::{Connection, ResponseBuilder, Response};
+use miasht::client::{Connection, RequestBuilder, Request};
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
+use url::{self, Url};
 
-use {Result, Error, ErrorKind};
-use serializers::{HttpBodySerializer, HttpHeaderSerializer};
-use types::Status;
+use {Result, Error, ErrorKind, Method};
+use procedure::EntryPoint;
+use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpBodySerializer, HttpHeaderSerializer};
 
-// enum Response {
-//     Status0{header, body},
-//     Status1{header},
-//     Status2{body},
-//     Status3
-// }
-//
-// see: `#[serde(with = "module")]`
-
+/// `Serializer` implementation for RPC request.
 #[derive(Debug)]
-pub struct ResponseSerializer {
+pub struct RpcRequestSerializer {
+    temp_url: Url,
+    is_path_initialized: bool,
+    method: Method,
+    entry_point: EntryPoint,
     connection: Option<Connection<TcpStream>>,
-    response: Option<ResponseBuilder<TcpStream>>,
+    request: Option<RequestBuilder<TcpStream>>,
     body: Vec<u8>,
 }
-impl ResponseSerializer {
-    pub fn new(connection: Connection<TcpStream>) -> Self {
-        ResponseSerializer {
+impl RpcRequestSerializer {
+    /// Makes a new `RpcRequestSerializer` instance.
+    pub fn new(connection: Connection<TcpStream>, method: Method, entry_point: EntryPoint) -> Self {
+        RpcRequestSerializer {
+            temp_url: Url::parse("http://localhost/").expect("Never fail"),
+            is_path_initialized: false,
+            method,
+            entry_point,
             connection: Some(connection),
-            response: None,
+            request: None,
             body: Vec::new(),
         }
     }
-    pub fn finish(self) -> Result<(Response<TcpStream>, Vec<u8>)> {
-        track_assert!(self.response.is_some(), ErrorKind::Invalid);
-        let mut response = self.response.unwrap();
-        // TODO: add Connection header field
-        response.add_header(&ContentLength(self.body.len() as u64));
-        Ok((response.finish(), self.body))
+
+    /// Finish the serialization and return the resulting HTTP request and body.
+    pub fn finish(self) -> Result<(Request<TcpStream>, Vec<u8>)> {
+        track_assert!(self.request.is_some(), ErrorKind::Invalid);
+        let mut request = self.request.unwrap();
+        request.add_header(&ContentLength(self.body.len() as u64));
+        Ok((request.finish(), self.body))
     }
 }
-impl<'a> ser::Serializer for &'a mut ResponseSerializer {
+impl<'a> ser::Serializer for &'a mut RpcRequestSerializer {
     type Ok = ();
     type Error = Error;
 
@@ -48,7 +51,7 @@ impl<'a> ser::Serializer for &'a mut ResponseSerializer {
     type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
     type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
     type SerializeMap = Impossible<Self::Ok, Self::Error>;
-    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
     fn serialize_bool(self, _v: bool) -> Result<Self::Ok> {
@@ -107,16 +110,12 @@ impl<'a> ser::Serializer for &'a mut ResponseSerializer {
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_unit_variant(mut self,
+    fn serialize_unit_variant(self,
                               _name: &'static str,
                               _variant_index: u32,
-                              variant: &'static str)
+                              _variant: &'static str)
                               -> Result<Self::Ok> {
-        track_assert!(self.connection.is_some(), ErrorKind::Invalid);
-        let status = track_try!(status_from_str(variant));
-        let response = self.connection.take().unwrap().build_response(status);
-        self.response = Some(response);
-        Ok(())
+        track_panic!(ErrorKind::Invalid);
     }
     fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
         where T: ?Sized + Serialize
@@ -157,31 +156,54 @@ impl<'a> ser::Serializer for &'a mut ResponseSerializer {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        track_panic!(ErrorKind::Invalid);
-    }
-    fn serialize_struct_variant(self,
-                                _name: &'static str,
-                                _variant_index: u32,
-                                variant: &'static str,
-                                _len: usize)
-                                -> Result<Self::SerializeStructVariant> {
-        track_assert!(self.connection.is_some(), ErrorKind::Invalid);
-        let status = track_try!(status_from_str(variant));
-        let response = self.connection.take().unwrap().build_response(status);
-        self.response = Some(response);
         Ok(self)
     }
+    fn serialize_struct_variant(self,
+                                name: &'static str,
+                                _variant_index: u32,
+                                _variant: &'static str,
+                                len: usize)
+                                -> Result<Self::SerializeStructVariant> {
+        track!(self.serialize_struct(name, len))
+    }
 }
-impl<'a> ser::SerializeStructVariant for &'a mut ResponseSerializer {
+impl<'a> ser::SerializeStruct for &'a mut RpcRequestSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
         where T: ?Sized + Serialize
     {
         match key {
+            "path" => {
+                track_assert!(self.connection.is_some(), ErrorKind::Invalid);
+                {
+                    let mut serializer = track_try!(UrlPathSerializer::new(&self.entry_point,
+                                                                           &mut self.temp_url));
+                    track_try!(value.serialize(&mut serializer));
+                }
+                self.is_path_initialized = true;
+                Ok(())
+            }
+            "query" => {
+                track_assert!(self.connection.is_some(), ErrorKind::Invalid);
+                if !self.is_path_initialized {
+                    let mut serializer = track_try!(UrlPathSerializer::new(&self.entry_point,
+                                                                           &mut self.temp_url));
+                    track_try!(value.serialize(&mut serializer));
+                    self.is_path_initialized = true;
+                }
+                {
+                    let mut serializer = UrlQuerySerializer::new(self.temp_url.query_pairs_mut());
+                    track_try!(value.serialize(&mut serializer));
+                }
+                let relative_url = &self.temp_url[url::Position::BeforePath..];
+                let connection = self.connection.take().unwrap();
+                self.request = Some(connection.build_request(self.method, relative_url));
+                Ok(())
+            }
             "header" => {
-                let mut response = self.response.as_mut().unwrap();
-                let mut serializer = HttpHeaderSerializer::new(response.headers_mut());
+                let mut request = self.request.as_mut().unwrap();
+                let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
                 track_try!(value.serialize(&mut serializer));
                 Ok(())
             }
@@ -197,66 +219,28 @@ impl<'a> ser::SerializeStructVariant for &'a mut ResponseSerializer {
         Ok(())
     }
 }
-
-fn status_from_str(s: &str) -> Result<Status> {
-    Ok(match s {
-           "Continue" => Status::Continue,
-           "SwitchingProtocols" => Status::SwitchingProtocols,
-           "Processing" => Status::Processing,
-           "Ok" => Status::Ok,
-           "Created" => Status::Created,
-           "Accepted" => Status::Accepted,
-           "NonAuthoritativeInformation" => Status::NonAuthoritativeInformation,
-           "NoContent" => Status::NoContent,
-           "ResetContent" => Status::ResetContent,
-           "PartialContent" => Status::PartialContent,
-           "MultiStatus" => Status::MultiStatus,
-           "AlreadyReported" => Status::AlreadyReported,
-           "ImUsed" => Status::ImUsed,
-           "MultipleChoices" => Status::MultipleChoices,
-           "MovedPermanently" => Status::MovedPermanently,
-           "Found" => Status::Found,
-           "SeeOther" => Status::SeeOther,
-           "NotModified" => Status::NotModified,
-           "UseProxy" => Status::UseProxy,
-           "TemporaryRedirect" => Status::TemporaryRedirect,
-           "PermanentRedirect" => Status::PermanentRedirect,
-           "BadRequest" => Status::BadRequest,
-           "Unauthorized" => Status::Unauthorized,
-           "PaymentRequired" => Status::PaymentRequired,
-           "Forbidden" => Status::Forbidden,
-           "NotFound" => Status::NotFound,
-           "MethodNotAllowed" => Status::MethodNotAllowed,
-           "NotAcceptable" => Status::NotAcceptable,
-           "ProxyAuthenticationRequired" => Status::ProxyAuthenticationRequired,
-           "RequestTimeout" => Status::RequestTimeout,
-           "Conflict" => Status::Conflict,
-           "Gone" => Status::Gone,
-           "LengthRequired" => Status::LengthRequired,
-           "PreconditionFailed" => Status::PreconditionFailed,
-           "PayloadTooLarge" => Status::PayloadTooLarge,
-           "UriTooLong" => Status::UriTooLong,
-           "UnsupportedMediaType" => Status::UnsupportedMediaType,
-           "RangeNotSatisfiable" => Status::RangeNotSatisfiable,
-           "ExceptionFailed" => Status::ExceptionFailed,
-           "ImATeapot" => Status::ImATeapot,
-           "MisdirectedRequest" => Status::MisdirectedRequest,
-           "UnprocessableEntity" => Status::UnprocessableEntity,
-           "Locked" => Status::Locked,
-           "FailedDependency" => Status::FailedDependency,
-           "UpgradeRequired" => Status::UpgradeRequired,
-           "UnavailableForLegalReasons" => Status::UnavailableForLegalReasons,
-           "InternalServerError" => Status::InternalServerError,
-           "NotImplemented" => Status::NotImplemented,
-           "BadGateway" => Status::BadGateway,
-           "ServiceUnavailable" => Status::ServiceUnavailable,
-           "GatewayTimeout" => Status::GatewayTimeout,
-           "HttpVersionNotSupported" => Status::HttpVersionNotSupported,
-           "VariantAlsoNegotiates" => Status::VariantAlsoNegotiates,
-           "InsufficientStorage" => Status::InsufficientStorage,
-           "LoopDetected" => Status::LoopDetected,
-           "BandwidthLimitExceeded" => Status::BandwidthLimitExceeded,
-           "NotExtended" => Status::NotExtended,
-           _ => track_panic!(ErrorKind::Invalid, "Unknown HTTP status: {:?}", s),
-       })
+impl<'a> ser::SerializeStructVariant for &'a mut RpcRequestSerializer {
+    type Ok = ();
+    type Error = Error;
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
+        where T: ?Sized + Serialize
+    {
+        match key {
+            "header" => {
+                let mut request = self.request.as_mut().unwrap();
+                let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
+                track_try!(value.serialize(&mut serializer));
+                Ok(())
+            }
+            "body" => {
+                let body = track_try!(value.serialize(HttpBodySerializer));
+                self.body = body;
+                Ok(())
+            }
+            _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
+        }
+    }
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
+    }
 }

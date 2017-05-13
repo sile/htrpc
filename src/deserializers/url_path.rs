@@ -309,7 +309,7 @@ mod test {
         struct Args(String, usize);
 
         let url = Url::parse("http://localhost/foo/hello%20world/baz/3").unwrap();
-        let mut deserializer = UrlPathDeserializer::new(entry_point, &url);
+        let mut deserializer = track_try_unwrap!(UrlPathDeserializer::new(entry_point, &url));
         let Args(v0, v1) = track_try_unwrap!(Args::deserialize(&mut deserializer));
         assert_eq!(v0, "hello world");
         assert_eq!(v1, 3);

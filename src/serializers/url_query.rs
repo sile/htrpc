@@ -6,12 +6,14 @@ use url::form_urlencoded::Serializer;
 
 use {Result, Error, ErrorKind};
 
+/// `Serializer` implementation for URL query string.
 pub struct UrlQuerySerializer<'a> {
     is_first: bool,
     key: Option<Cow<'static, str>>,
     query: Serializer<UrlQuery<'a>>,
 }
 impl<'a> UrlQuerySerializer<'a> {
+    /// Makes a new `UrlQuerySerializer` instance.
     pub fn new(query: Serializer<UrlQuery<'a>>) -> Self {
         UrlQuerySerializer {
             is_first: true,
@@ -19,6 +21,7 @@ impl<'a> UrlQuerySerializer<'a> {
             query,
         }
     }
+
     fn append(&mut self, key_or_val: Cow<str>) {
         if let Some(key) = self.key.take() {
             let val = &key_or_val;

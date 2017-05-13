@@ -1,24 +1,28 @@
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
-use url::PathSegmentsMut;
+use url::{Url, PathSegmentsMut};
 
 use {Result, Error, ErrorKind, EntryPoint};
 
+/// `Serializer` implementation for URL path.
 pub struct UrlPathSerializer<'a> {
     segments: PathSegmentsMut<'a>,
-    template: &'a EntryPoint,
+    entry_point: &'a EntryPoint,
     index: usize,
     is_started: bool,
 }
 impl<'a> UrlPathSerializer<'a> {
-    pub fn new(template: &'a EntryPoint, segments: PathSegmentsMut<'a>) -> Self {
-        UrlPathSerializer {
-            segments,
-            template,
-            index: 0,
-            is_started: false,
-        }
+    /// Makes a new `UrlPathSerializer` instance.
+    pub fn new(entry_point: &'a EntryPoint, url: &'a mut Url) -> Result<Self> {
+        let segments = track_try!(url.path_segments_mut().map_err(|_| ErrorKind::Invalid));
+        Ok(UrlPathSerializer {
+               segments,
+               entry_point,
+               index: 0,
+               is_started: false,
+           })
     }
+
     fn bind_next_var(&mut self, value: &str) -> Result<()> {
         track_assert!(self.is_started, ErrorKind::Invalid);
         track_assert!(!self.append_until_next_var(), ErrorKind::Invalid);
@@ -32,8 +36,8 @@ impl<'a> UrlPathSerializer<'a> {
         Ok(())
     }
     fn append_until_next_var(&mut self) -> bool {
-        while self.index < self.template.len() {
-            if let Some(s) = self.template.get_val(self.index) {
+        while self.index < self.entry_point.len() {
+            if let Some(s) = self.entry_point.get_val(self.index) {
                 self.segments.push(s);
                 self.index += 1;
             } else {
@@ -43,7 +47,7 @@ impl<'a> UrlPathSerializer<'a> {
         true
     }
     fn var_count(&self) -> usize {
-        self.template.var_count()
+        self.entry_point.var_count()
     }
 }
 impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
@@ -251,8 +255,7 @@ mod test {
 
         let mut url = Url::parse("http://localhost/").unwrap();
         {
-            let mut serializer = UrlPathSerializer::new(&entry_point,
-                                                        url.path_segments_mut().unwrap());
+            let mut serializer = track_try_unwrap!(UrlPathSerializer::new(&entry_point, &mut url));
             track_try_unwrap!(Args("hello world", 3).serialize(&mut serializer));
         }
         assert_eq!(url.as_str(), "http://localhost/foo/hello%20world/baz/3");

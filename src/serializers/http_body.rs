@@ -3,6 +3,7 @@ use serde::ser::{self, Impossible};
 
 use {Result, Error, ErrorKind};
 
+/// `Serializer` implementation for HTTP body.
 #[derive(Debug)]
 pub struct HttpBodySerializer;
 impl ser::Serializer for HttpBodySerializer {

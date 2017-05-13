@@ -1,4 +1,7 @@
 //! `Deserializer` trait implementations.
+//!
+//! Note that this module has been exported only for the documentation purpose.
+//! It is not intended that this module is used by users explicitly.
 pub use self::http_body::HttpBodyDeserializer;
 pub use self::http_header::HttpHeaderDeserializer;
 pub use self::rpc_request::RpcRequestDeserializer;
