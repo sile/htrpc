@@ -25,7 +25,7 @@ impl RpcResponseSerializer {
         }
     }
 
-    /// Finish the serialization and return the resulting HTTP response and body.
+    /// Finishes the serialization and returns the resulting HTTP response and body.
     pub fn finish(self) -> Result<(Response<TcpStream>, Vec<u8>)> {
         track_assert!(self.response.is_some(), ErrorKind::Invalid);
         let mut response = self.response.expect("Never fail");

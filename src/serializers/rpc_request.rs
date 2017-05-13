@@ -34,7 +34,7 @@ impl RpcRequestSerializer {
         }
     }
 
-    /// Finish the serialization and return the resulting HTTP request and body.
+    /// Finishes the serialization and returns the resulting HTTP request and body.
     pub fn finish(self) -> Result<(Request<TcpStream>, Vec<u8>)> {
         track_assert!(self.request.is_some(), ErrorKind::Invalid);
         let mut request = self.request.unwrap();
