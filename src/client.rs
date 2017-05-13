@@ -6,23 +6,26 @@ use miasht;
 use miasht::builtin::io::IoExt;
 use miasht::builtin::futures::FutureExt;
 use miasht::client::{Connection, Response};
-use serde::ser::Serialize;
+use serde::{Deserialize, Serialize};
 
 use Error;
 use deserializers::RpcResponseDeserializer;
 use procedure::Procedure;
 use serializers::RpcRequestSerializer;
 
-// TODO: Support keep-alive
+/// RPC Client.
 #[derive(Debug)]
 pub struct RpcClient {
     server: SocketAddr,
 }
 impl RpcClient {
+    /// Makes an RPC client which will communicate with the `server`.
     pub fn new(server: SocketAddr) -> Self {
         RpcClient { server }
     }
 
+    /// Issues an RPC request and returns the `Future`
+    /// which will result in the corresponding response.
     pub fn call<P>(&mut self, request: P::Request) -> Call<P>
         where P: Procedure
     {
@@ -35,6 +38,7 @@ impl RpcClient {
     }
 }
 
+/// A `Future` which represents an RPC invocation.
 pub struct Call<P>
     where P: Procedure
 {
@@ -54,25 +58,30 @@ impl<P> Future for Call<P>
             let next = match track_try!(self.phase.poll()) {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(connection)) => {
+                    // Writes HTTP request.
                     let entry_point = P::entry_point();
-                    let request = self.request.take().unwrap();
+                    let rpc_request = self.request.take().expect("Never fail");
                     let mut ser = RpcRequestSerializer::new(connection, P::method(), entry_point);
-                    track_try!(request.serialize(&mut ser));
+                    track_try!(rpc_request.serialize(&mut ser));
                     let (request, body) = track_try!(ser.finish());
                     Phase::B(request.write_all_bytes(body).and_then(|r| r).boxed())
                 }
-                Async::Ready(Phase::B(connection)) => Phase::C(connection.read_response().boxed()),
+                Async::Ready(Phase::B(connection)) => {
+                    // Reads HTTP response (without body).
+                    Phase::C(connection.read_response().boxed())
+                }
                 Async::Ready(Phase::C(response)) => {
+                    // Reads HTTP response body.
                     let future = futures::done(response.into_body_reader())
                         .and_then(|res| track_err!(res.read_all_bytes()))
                         .map(|(res, body)| (res.into_inner(), body));
                     Phase::D(future.boxed())
                 }
                 Async::Ready(Phase::D((response, body))) => {
-                    use serde::Deserialize;
+                    // Converts from HTTP response to RPC response.
                     let mut deserializer = RpcResponseDeserializer::new(&response, body);
-                    let response = track_try!(P::Response::deserialize(&mut deserializer));
-                    return Ok(Async::Ready(response));
+                    let rpc_response = track_try!(P::Response::deserialize(&mut deserializer));
+                    return Ok(Async::Ready(rpc_response));
                 }
                 _ => unreachable!(),
             };

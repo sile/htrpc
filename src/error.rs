@@ -8,6 +8,7 @@ use serdeconv;
 use trackable::error::{TrackableError, IntoTrackableError};
 use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt};
 
+/// This crate specific error type.
 #[derive(Debug, Clone)]
 pub struct Error(TrackableError<ErrorKind>);
 derive_traits_for_trackable_error_newtype!(Error, ErrorKind);
@@ -26,10 +27,13 @@ impl de::Error for Error {
     }
 }
 
-#[derive(Debug, Clone)]
+/// The list of the possible error kinds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorKind {
+    /// Input data is invalid.
     Invalid,
-    Timeout,
+
+    /// Other error.
     Other,
 }
 impl TrackableErrorKind for ErrorKind {}
@@ -45,27 +49,27 @@ impl<T> IntoTrackableError<(io::Error, T)> for ErrorKind {
 }
 impl IntoTrackableError<std::str::Utf8Error> for ErrorKind {
     fn into_trackable_error(e: std::str::Utf8Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
+        ErrorKind::Invalid.cause(e)
     }
 }
 impl IntoTrackableError<std::str::ParseBoolError> for ErrorKind {
     fn into_trackable_error(e: std::str::ParseBoolError) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
+        ErrorKind::Invalid.cause(e)
     }
 }
 impl IntoTrackableError<std::string::FromUtf8Error> for ErrorKind {
     fn into_trackable_error(e: std::string::FromUtf8Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
+        ErrorKind::Invalid.cause(e)
     }
 }
 impl IntoTrackableError<std::num::ParseIntError> for ErrorKind {
     fn into_trackable_error(e: std::num::ParseIntError) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
+        ErrorKind::Invalid.cause(e)
     }
 }
 impl IntoTrackableError<std::num::ParseFloatError> for ErrorKind {
     fn into_trackable_error(e: std::num::ParseFloatError) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
+        ErrorKind::Invalid.cause(e)
     }
 }
 impl IntoTrackableError<miasht::Error> for ErrorKind {
@@ -75,7 +79,11 @@ impl IntoTrackableError<miasht::Error> for ErrorKind {
 }
 impl IntoTrackableError<serdeconv::Error> for ErrorKind {
     fn into_trackable_error(e: serdeconv::Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.takes_over(e)
+        if *e.kind() == serdeconv::ErrorKind::Invalid {
+            ErrorKind::Invalid.takes_over(e)
+        } else {
+            ErrorKind::Other.takes_over(e)
+        }
     }
 }
 impl<A, B, C, D, E> IntoTrackableError<Phase<A, B, C, D, E>> for ErrorKind

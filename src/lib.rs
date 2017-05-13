@@ -57,4 +57,5 @@ mod error;
 mod procedure;
 mod server;
 
+/// This crate specific `Result` type.
 pub type Result<T> = ::std::result::Result<T, Error>;
