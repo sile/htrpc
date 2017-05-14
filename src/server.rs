@@ -10,6 +10,7 @@ use miasht::builtin::io::IoExt;
 use miasht::builtin::futures::FutureExt;
 use miasht::server::{Connection, Request, Response};
 use serde::{Deserialize, Serialize};
+use slog::{Logger, Discard};
 use url::Url;
 
 use {Result, Error, ErrorKind};
@@ -21,6 +22,7 @@ use serializers::RpcResponseSerializer;
 /// The `RpcServer` builder.
 pub struct RpcServerBuilder {
     bind_addr: SocketAddr,
+    logger: Logger,
     router: RouterBuilder,
 }
 impl RpcServerBuilder {
@@ -28,8 +30,14 @@ impl RpcServerBuilder {
     pub fn new(bind_addr: SocketAddr) -> Self {
         RpcServerBuilder {
             bind_addr,
+            logger: Logger::root(Discard, o!()),
             router: RouterBuilder::new(),
         }
+    }
+
+    /// Sets the logger to this server.
+    pub fn set_logger(&mut self, logger: Logger) {
+        self.logger = logger;
     }
 
     /// Registers an RPC handler.
@@ -74,6 +82,7 @@ impl RpcServerBuilder {
     {
         RpcServer {
             spawner: spawner.boxed(),
+            logger: self.logger,
             router: self.router.finish(),
             phase: Phase::A(fibers::net::TcpListener::bind(self.bind_addr)),
         }
@@ -83,6 +92,7 @@ impl RpcServerBuilder {
 /// RPC Server.
 pub struct RpcServer {
     spawner: BoxSpawn,
+    logger: Logger,
     router: Router,
     phase:
         Phase<fibers::net::futures::TcpListenerBind, StreamFuture<fibers::net::streams::Incoming>>,
@@ -94,11 +104,18 @@ impl Future for RpcServer {
         loop {
             let next = match track_try!(self.phase.poll()) {
                 Async::NotReady => return Ok(Async::NotReady),
-                Async::Ready(Phase::A(listener)) => Phase::B(listener.incoming().into_future()),
+                Async::Ready(Phase::A(listener)) => {
+                    info!(self.logger,
+                          "RPC server started: {:?}",
+                          listener.local_addr());
+                    Phase::B(listener.incoming().into_future())
+                }
                 Async::Ready(Phase::B((client, incoming))) => {
-                    let (connected, _) = track_try!(client.ok_or(ErrorKind::Invalid));
+                    let (connected, addr) = track_try!(client.ok_or(ErrorKind::Invalid));
+                    debug!(self.logger, "New client is connected: {}", addr);
 
                     let future = HandleHttpRequest {
+                        logger: self.logger.clone(),
                         router: self.router.clone(),
                         phase: Phase::A(connected),
                     };
@@ -113,6 +130,7 @@ impl Future for RpcServer {
 }
 
 struct HandleHttpRequest {
+    logger: Logger,
     router: Router,
     phase: Phase<Connected,
                  BoxFuture<(Request<TcpStream>, Vec<u8>), miasht::Error>,
@@ -134,6 +152,11 @@ impl HandleHttpRequest {
                     Phase::B(future.boxed())
                 }
                 Async::Ready(Phase::B((request, body))) => {
+                    debug!(self.logger,
+                           "RPC request: method={}, path={:?}, body_bytes={}",
+                           request.method(),
+                           request.path(),
+                           body.len());
                     let base = Url::parse("http://localhost/").expect("Never fails");
                     // TODO: Handle InvalidRequest
                     let url =
@@ -141,9 +164,9 @@ impl HandleHttpRequest {
                     let future = match self.router.route(&url, &request) {
                         Err(RouteError::NotFound) => panic!("TODO"),
                         Err(RouteError::MethodNotAllowed) => panic!("TODO"),
-                        Ok(handler) => handler(url, request, body).map_err(|_| unreachable!()),
+                        Ok(handler) => handler(url, request, body),
                     };
-                    Phase::C(future.boxed())
+                    Phase::C(future)
                 }
                 Async::Ready(Phase::C((response, body))) => {
                     let future = response
@@ -166,8 +189,8 @@ impl Future for HandleHttpRequest {
     type Error = ();
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.poll_impl()
-            .map_err(|_| {
-                         // TODO: logging
+            .map_err(|e| {
+                         warn!(self.logger, "Failed to handle RPC request: {}", e);
                          ()
                      })
     }

@@ -6,6 +6,7 @@ extern crate htrpc;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate sloggers;
 #[macro_use]
 extern crate trackable;
 
@@ -17,6 +18,7 @@ use futures::{BoxFuture, Future};
 use htrpc::{RpcClient, RpcServerBuilder};
 use htrpc::{Procedure, RpcRequest, RpcResponse, HandleRpc};
 use htrpc::types::{EntryPoint, HttpMethod, NeverFail};
+use sloggers::Build;
 
 fn main() {
     let matches = App::new("counter_rpc")
@@ -54,7 +56,7 @@ fn main() {
         let mut client = RpcClient::new(server_addr.parse().unwrap());
         let request = FetchAndAddRequest {
             path: (counter.to_string(),),
-            query: AddValue { value: count_value.parse().unwrap() },
+            query: Value { value: count_value.parse().unwrap() },
         };
         let future = client.call::<FetchAndAdd>(request);
 
@@ -64,6 +66,10 @@ fn main() {
     } else if let Some(_matches) = matches.subcommand_matches("server") {
         let mut builder = RpcServerBuilder::new(server_addr.parse().unwrap());
         track_try_unwrap!(builder.register(FetchAndAddHandler::new()));
+        let logger = track_try_unwrap!(sloggers::terminal::TerminalLoggerBuilder::new()
+                                           .level(sloggers::types::Severity::Debug)
+                                           .build());
+        builder.set_logger(logger);
         let server = builder.start(executor.handle());
         let monitor = executor.spawn_monitor(server.map_err(|e| panic!("{:?}", e)));
         executor.run_fiber(monitor).unwrap().unwrap();
@@ -98,34 +104,34 @@ impl HandleRpc<FetchAndAdd> for FetchAndAddHandler {
     fn handle_rpc(self, request: FetchAndAddRequest) -> Self::Future {
         let FetchAndAddRequest {
             path: (name,),
-            query: AddValue { value },
+            query: Value { value },
         } = request;
         let mut counters = self.counters.lock().expect("TODO");
         *counters.entry(name.clone()).or_insert(0) += value as usize;
 
-        let value = counters.get(&name).unwrap();
-        futures::finished(FetchAndAddResponse::Ok { body: *value }).boxed()
+        let value = *counters.get(&name).unwrap();
+        futures::finished(FetchAndAddResponse::Ok { body: Value { value } }).boxed()
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 enum FetchAndAddResponse {
-    Ok { body: usize },
+    Ok { body: Value },
 }
 impl RpcResponse for FetchAndAddResponse {}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct FetchAndAddRequest {
     pub path: (String,),
-    pub query: AddValue,
+    pub query: Value,
 }
 impl RpcRequest for FetchAndAddRequest {}
 
 #[derive(Debug, Serialize, Deserialize)]
-struct AddValue {
+struct Value {
     #[serde(default = "one")]
-    pub value: u8,
+    pub value: usize,
 }
-fn one() -> u8 {
+fn one() -> usize {
     1
 }
