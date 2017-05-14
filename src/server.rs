@@ -9,14 +9,15 @@ use handy_async::future::Phase;
 use miasht;
 use miasht::builtin::io::IoExt;
 use miasht::builtin::futures::FutureExt;
-use miasht::server::{Request, Response, Connection};
-use serde::Deserialize;
+use miasht::server::{Request, Response};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
-use {Result, Error, HttpMethod, ErrorKind};
+use {Result, Error, ErrorKind};
 use deserializers::RpcRequestDeserializer;
 use procedure::{Procedure, HandleRpc, EntryPoint};
 use serializers::RpcResponseSerializer;
+use types::HttpMethod;
 
 /// The `RpcServer` builder.
 pub struct RpcServerBuilder {
@@ -37,19 +38,30 @@ impl RpcServerBuilder {
         where P: Procedure,
               H: HandleRpc<P>
     {
-        let handle_request = move |url, request, body| -> HandleRpcResult {
-            // TODO: error handling
-            let rpc_request = track_try_unwrap!(request_to_rpc_request::<P>(&url, &request, body));
+        let handle_request = move |url, http_request, body| -> HandleRpcResult {
             let handler = handler.clone();
+            let rpc_request = {
+                let mut de =
+                    RpcRequestDeserializer::new(P::entry_point(), &url, &http_request, body);
+                match track!(Deserialize::deserialize(&mut de)) {
+                    Err(e) => {
+                        //
+                        panic!("TODO: response 400");
+                    }
+                    Ok(r) => r,
+                }
+            };
             handler
                 .handle_rpc(rpc_request)
-                .then(move |result| {
-                          let rpc_response = result.expect("Never fails");
-                          let response =
-                              track_try_unwrap!(rpc_response_to_response::<P>(request.finish(),
-                                                                              rpc_response));
-                          Ok(response)
-                      })
+                .map_err(|_| unreachable!())
+                .and_then(move |rpc_response| {
+                              let (http_response, body) = {
+                                  let mut ser = RpcResponseSerializer::new(http_request.finish());
+                                  track_try!(rpc_response.serialize(&mut ser));
+                                  track_try!(ser.finish())
+                              };
+                              Ok((http_response, body))
+                          })
                 .boxed()
         };
         track_try!(self.router
@@ -69,6 +81,7 @@ impl RpcServerBuilder {
     }
 }
 
+/// RPC Server.
 pub struct RpcServer {
     spawner: BoxSpawn,
     router: RoutingTree,
@@ -106,22 +119,6 @@ impl Future for RpcServer {
             self.phase = next;
         }
     }
-}
-
-fn request_to_rpc_request<P: Procedure>(url: &Url,
-                                        request: &Request<TcpStream>,
-                                        body: Vec<u8>)
-                                        -> Result<P::Request> {
-    let mut de = RpcRequestDeserializer::new(P::entry_point(), url, request, body);
-    track!(Deserialize::deserialize(&mut de))
-}
-fn rpc_response_to_response<P: Procedure>(connection: Connection<TcpStream>,
-                                          rpc_response: P::Response)
-                                          -> Result<(Response<TcpStream>, Vec<u8>)> {
-    use serde::Serialize;
-    let mut serializer = RpcResponseSerializer::new(connection);
-    track_try!(rpc_response.serialize(&mut serializer));
-    track!(serializer.finish())
 }
 
 type HandleRpcResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;

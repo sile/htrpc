@@ -1,7 +1,7 @@
 use futures::Future;
 use serde::{Serialize, Deserialize};
 
-use HttpMethod;
+use types::HttpMethod;
 
 /// Procedure definition.
 pub trait Procedure {
@@ -141,8 +141,7 @@ impl EntryPoint {
     /// ```
     /// # #[macro_use]
     /// # extern crate htrpc;
-    /// use htrpc::EntryPoint;
-    /// use htrpc::types::PathSegment;
+    /// use htrpc::types::{EntryPoint, PathSegment};
     ///
     /// # fn main() {
     /// static SEGMENTS: &[PathSegment] =

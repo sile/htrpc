@@ -3,9 +3,10 @@ use miasht::server::Request;
 use serde::de::{self, Visitor};
 use url::Url;
 
-use {Result, Error, ErrorKind, EntryPoint};
+use {Result, Error, ErrorKind};
 use deserializers::{UrlPathDeserializer, UrlQueryDeserializer, HttpHeaderDeserializer,
                     HttpBodyDeserializer};
+use types::EntryPoint;
 
 #[derive(Debug, Clone, Copy)]
 enum Phase {

@@ -5,8 +5,8 @@ use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use url::{self, Url};
 
-use {Result, Error, ErrorKind, HttpMethod};
-use procedure::EntryPoint;
+use {Result, Error, ErrorKind};
+use types::{EntryPoint, HttpMethod};
 use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpBodySerializer, HttpHeaderSerializer};
 
 /// `Serializer` implementation for RPC request.

@@ -6,7 +6,8 @@ use serde::de::{self, Visitor};
 use trackable::error::IntoTrackableError;
 use url::{self, Url};
 
-use {Result, Error, ErrorKind, EntryPoint};
+use {Result, Error, ErrorKind};
+use types::EntryPoint;
 
 /// `Deserializer` implementation for URL path.
 #[derive(Debug)]

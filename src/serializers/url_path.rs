@@ -2,7 +2,8 @@ use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use url::{Url, PathSegmentsMut};
 
-use {Result, Error, ErrorKind, EntryPoint};
+use {Result, Error, ErrorKind};
+use types::EntryPoint;
 
 /// `Serializer` implementation for URL path.
 pub struct UrlPathSerializer<'a> {

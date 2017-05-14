@@ -17,12 +17,9 @@ extern crate serde_derive;
 extern crate trackable;
 extern crate url;
 
-pub use miasht::Method as HttpMethod;
-
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};
-pub use procedure::{EntryPoint, Procedure, NeverFail};
-pub use procedure::{HandleRpc, RpcRequest, RpcResponse};
+pub use procedure::{Procedure, HandleRpc, RpcRequest, RpcResponse};
 pub use server::{RpcServer, RpcServerBuilder};
 
 /// A helper macro to construct an `EntryPoint` instance.
@@ -32,8 +29,7 @@ pub use server::{RpcServer, RpcServerBuilder};
 /// ```
 /// # #[macro_use]
 /// # extern crate htrpc;
-/// use htrpc::EntryPoint;
-/// use htrpc::types::PathSegment;
+/// use htrpc::types::{EntryPoint, PathSegment};
 ///
 /// # fn main() {
 /// static SEGMENTS: &[PathSegment] =
@@ -49,7 +45,7 @@ macro_rules! htrpc_entry_point {
         {
             static SEGMENTS: &[$crate::types::PathSegment] =
                 &[$(htrpc_expand_segment!($segment)),*];
-            $crate::EntryPoint::new(SEGMENTS)
+            $crate::types::EntryPoint::new(SEGMENTS)
         }
     }
 }
