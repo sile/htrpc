@@ -7,6 +7,7 @@ use serde::{de, ser};
 use serdeconv;
 use trackable::error::{TrackableError, IntoTrackableError};
 use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt};
+use url;
 
 /// This crate specific error type.
 #[derive(Debug, Clone)]
@@ -69,6 +70,11 @@ impl IntoTrackableError<std::num::ParseIntError> for ErrorKind {
 }
 impl IntoTrackableError<std::num::ParseFloatError> for ErrorKind {
     fn into_trackable_error(e: std::num::ParseFloatError) -> TrackableError<ErrorKind> {
+        ErrorKind::Invalid.cause(e)
+    }
+}
+impl IntoTrackableError<url::ParseError> for ErrorKind {
+    fn into_trackable_error(e: url::ParseError) -> TrackableError<ErrorKind> {
         ErrorKind::Invalid.cause(e)
     }
 }

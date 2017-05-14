@@ -1,35 +1,34 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use fibers::{self, Spawn, BoxSpawn};
 use fibers::net::TcpStream;
-use futures::{self, Future, BoxFuture, Poll, Async, Stream};
+use fibers::net::futures::Connected;
+use futures::{Future, Poll, Async, Stream, BoxFuture};
 use futures::stream::StreamFuture;
 use handy_async::future::Phase;
 use miasht;
 use miasht::builtin::io::IoExt;
 use miasht::builtin::futures::FutureExt;
-use miasht::server::{Request, Response};
+use miasht::server::{Connection, Request, Response};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use {Result, Error, ErrorKind};
 use deserializers::RpcRequestDeserializer;
-use procedure::{Procedure, HandleRpc, EntryPoint};
+use procedure::{Procedure, HandleRpc};
+use router::{Router, RouterBuilder, RouteError};
 use serializers::RpcResponseSerializer;
-use types::HttpMethod;
 
 /// The `RpcServer` builder.
 pub struct RpcServerBuilder {
     bind_addr: SocketAddr,
-    router: RoutingTreeBuilder,
+    router: RouterBuilder,
 }
 impl RpcServerBuilder {
     /// Makes a new `RpcServerBuilder` instance.
     pub fn new(bind_addr: SocketAddr) -> Self {
         RpcServerBuilder {
             bind_addr,
-            router: RoutingTreeBuilder::new(),
+            router: RouterBuilder::new(),
         }
     }
 
@@ -38,7 +37,7 @@ impl RpcServerBuilder {
         where P: Procedure,
               H: HandleRpc<P>
     {
-        let handle_request = move |url, http_request, body| -> HandleRpcResult {
+        let handle_http_request = move |url, http_request, body| {
             let handler = handler.clone();
             let rpc_request = {
                 let mut de =
@@ -65,7 +64,7 @@ impl RpcServerBuilder {
                 .boxed()
         };
         track_try!(self.router
-                       .register(P::method(), P::entry_point(), handle_request));
+                       .register_handler(P::method(), P::entry_point(), handle_http_request));
         Ok(())
     }
 
@@ -84,7 +83,7 @@ impl RpcServerBuilder {
 /// RPC Server.
 pub struct RpcServer {
     spawner: BoxSpawn,
-    router: RoutingTree,
+    router: Router,
     phase:
         Phase<fibers::net::futures::TcpListenerBind, StreamFuture<fibers::net::streams::Incoming>>,
 }
@@ -99,18 +98,10 @@ impl Future for RpcServer {
                 Async::Ready(Phase::B((client, incoming))) => {
                     let (connected, _) = track_try!(client.ok_or(ErrorKind::Invalid));
 
-                    // TODO: support keep-alive
-                    let router = self.router.clone();
-                    let future = connected
-                        .then(|r| Ok(track_try!(r)))
-                        .map_err(|e: Error| e)
-                        .and_then(|stream| {
-                                      let connection =
-                                          miasht::server::Connection::new(stream, 1024, 10240, 16);
-                                      connection.read_request().then(|r| Ok(track_try!(r)))
-                                  })
-                        .and_then(move |request| router.handle_request(request))
-                        .map_err(|e| panic!("{:?}", e)); // TODO: error handling
+                    let future = HandleHttpRequest {
+                        router: self.router.clone(),
+                        phase: Phase::A(connected),
+                    };
                     self.spawner.spawn(future);
                     Phase::B(incoming.into_future())
                 }
@@ -121,130 +112,63 @@ impl Future for RpcServer {
     }
 }
 
-type HandleRpcResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
-type HandleRpcFn = Box<Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRpcResult + Send + 'static>;
-
-#[derive(Clone)]
-struct RoutingTree {
-    trie: Arc<Trie>,
+struct HandleHttpRequest {
+    router: Router,
+    phase: Phase<Connected,
+                 BoxFuture<(Request<TcpStream>, Vec<u8>), miasht::Error>,
+                 BoxFuture<(Response<TcpStream>, Vec<u8>), Error>,
+                 BoxFuture<(), miasht::Error>>,
 }
-unsafe impl Send for RoutingTree {}
-impl RoutingTree {
-    fn handle_request(self, request: Request<TcpStream>) -> BoxFuture<(), Error> {
-        futures::done(request.into_body_reader())
-            .and_then(|req| track_err!(req.read_all_bytes()))
-            .and_then(move |(req, body)| {
-                let req = req.into_inner();
-                let base = Url::parse("http://localhost/").unwrap(); // TODO
-                let url = Url::options()
-                    .base_url(Some(&base))
-                    .parse(req.path())
-                    .expect("TODO: error handling");
-                let mut trie = self.trie.root();
-                for segment in url.path_segments().expect("TODO") {
-                    if let Some(child) = trie.get_child(segment) {
-                        trie = child;
-                    } else {
-                        panic!("TODO");
-                    }
+impl HandleHttpRequest {
+    fn poll_impl(&mut self) -> Poll<(), Error> {
+        loop {
+            let next = match track_try!(self.phase.poll()) {
+                Async::NotReady => return Ok(Async::NotReady),
+                Async::Ready(Phase::A(stream)) => {
+                    let connection = Connection::new(stream, 1024, 8096, 32);
+                    let future = connection
+                        .read_request()
+                        .and_then(|req| req.into_body_reader())
+                        .and_then(|req| req.read_all_bytes())
+                        .map(|(req, body)| (req.into_inner(), body));
+                    Phase::B(future.boxed())
                 }
-                if let Some(handler) = trie.get_value(req.method()) {
-                    handler(url, req, body).map_err(|_| unreachable!())
-                } else {
-                    panic!("TODO error handling: {:?}", url)
+                Async::Ready(Phase::B((request, body))) => {
+                    let base = Url::parse("http://localhost/").expect("Never fails");
+                    // TODO: Handle InvalidRequest
+                    let url =
+                        track_try!(Url::options().base_url(Some(&base)).parse(request.path()));
+                    let future = match self.router.route(&url, &request) {
+                        Err(RouteError::NotFound) => panic!("TODO"),
+                        Err(RouteError::MethodNotAllowed) => panic!("TODO"),
+                        Ok(handler) => handler(url, request, body).map_err(|_| unreachable!()),
+                    };
+                    Phase::C(future.boxed())
                 }
-            })
-            .then(|result| match result {
-                      Ok((response, body)) => {
-                // TODO: suport keep-alive
-                response
-                    .write_all_bytes(body)
-                    .map_err(|e| panic!("{:?}", e))
-                    .and_then(|res| res)
-                    .map_err(|e| panic!("{:?}", e))
-                    .map(|_| ())
-            }
-                      Err(e) => panic!("TODO: {:?}", e),
-                  })
-            .boxed()
-    }
-}
-
-struct RoutingTreeBuilder {
-    trie: Trie,
-}
-impl RoutingTreeBuilder {
-    pub fn new() -> Self {
-        RoutingTreeBuilder { trie: Trie::new() }
-    }
-    pub fn finish(self) -> RoutingTree {
-        RoutingTree { trie: Arc::new(self.trie) }
-    }
-    pub fn register<H: Send + 'static>(&mut self,
-                                       method: HttpMethod,
-                                       entry_point: EntryPoint,
-                                       handler: H)
-                                       -> Result<()>
-        where H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRpcResult
-    {
-        track_try!(self.trie.insert(method, &entry_point, Box::new(handler)));
-        Ok(())
-    }
-}
-
-struct Trie {
-    root: TrieNode,
-}
-impl Trie {
-    pub fn new() -> Self {
-        Trie { root: TrieNode::new() }
-    }
-    pub fn insert(&mut self,
-                  method: HttpMethod,
-                  entry_point: &EntryPoint,
-                  handler: HandleRpcFn)
-                  -> Result<()> {
-        let mut node = &mut self.root;
-        for segment in entry_point.segments() {
-            use types::PathSegment::*;
-            let key = match *segment {
-                Val(s) => Some(s),
-                Var => None,
+                Async::Ready(Phase::C((response, body))) => {
+                    let future = response
+                        .write_all_bytes(body)
+                        .and_then(|res| res)
+                        .map(|_| ());
+                    Phase::D(future.boxed())
+                }
+                Async::Ready(Phase::D(())) => {
+                    return Ok(Async::Ready(()));
+                }
+                _ => unreachable!(),
             };
-            node = {
-                    node
-                }
-                .children
-                .entry(key)
-                .or_insert_with(|| TrieNode::new());
-        }
-        track_assert!(!node.leafs.contains_key(&method), ErrorKind::Invalid);
-        node.leafs.insert(method, handler);
-        Ok(())
-    }
-    pub fn root(&self) -> &TrieNode {
-        &self.root
-    }
-}
-
-struct TrieNode {
-    children: HashMap<Option<&'static str>, TrieNode>,
-    leafs: HashMap<HttpMethod, HandleRpcFn>,
-}
-impl TrieNode {
-    pub fn new() -> Self {
-        TrieNode {
-            children: HashMap::new(),
-            leafs: HashMap::new(),
+            self.phase = next;
         }
     }
-    pub fn get_child<'a>(&'a self, segment: &str) -> Option<&'a Self> {
-        let segment: &'static str = unsafe { &*(segment as *const _) as _ }; // TODO
-        self.children
-            .get(&Some(segment))
-            .or_else(|| self.children.get(&None))
-    }
-    pub fn get_value(&self, method: HttpMethod) -> Option<&HandleRpcFn> {
-        self.leafs.get(&method)
+}
+impl Future for HandleHttpRequest {
+    type Item = ();
+    type Error = ();
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.poll_impl()
+            .map_err(|_| {
+                         // TODO: logging
+                         ()
+                     })
     }
 }

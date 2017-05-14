@@ -68,6 +68,7 @@ pub mod types;
 mod client;
 mod error;
 mod procedure;
+mod router;
 mod server;
 
 /// This crate specific `Result` type.
