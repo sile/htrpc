@@ -36,8 +36,8 @@ impl<'a> UrlPathSerializer<'a> {
         Ok(())
     }
     fn append_until_next_var(&mut self) -> bool {
-        while self.index < self.entry_point.len() {
-            if let Some(s) = self.entry_point.get_val(self.index) {
+        while self.index < self.entry_point.segments().len() {
+            if let Some(s) = self.entry_point.segments()[self.index].as_option() {
                 self.segments.push(s);
                 self.index += 1;
             } else {

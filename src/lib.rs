@@ -17,7 +17,32 @@ extern crate serde_derive;
 extern crate trackable;
 extern crate url;
 
-// TODO
+pub use miasht::Method as HttpMethod;
+
+pub use client::RpcClient;
+pub use error::{Error, ErrorKind};
+pub use procedure::{EntryPoint, Procedure};
+pub use procedure::{HandleRpc, RpcRequest, RpcResponse};
+pub use server::{RpcServer, RpcServerBuilder};
+
+/// A helper macro to construct an `EntryPoint` instance.
+///
+/// # Examples
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate htrpc;
+/// use htrpc::EntryPoint;
+/// use htrpc::types::PathSegment;
+///
+/// # fn main() {
+/// static SEGMENTS: &[PathSegment] =
+///     &[PathSegment::Val("foo"), PathSegment::Var, PathSegment::Val("baz")];
+/// let p0 = EntryPoint::new(SEGMENTS);
+/// let p1 = htrpc_entry_point!["foo", _, "baz"];
+/// assert_eq!(p0, p1);
+/// # }
+/// ```
 #[macro_export]
 macro_rules! htrpc_entry_point {
     ($($segment:tt),*) => {
@@ -39,14 +64,6 @@ macro_rules! htrpc_expand_segment {
         $crate::types::PathSegment::Val($s)
     }
 }
-
-pub use miasht::Method;
-
-pub use client::RpcClient;
-pub use error::{Error, ErrorKind};
-pub use procedure::{EntryPoint, Procedure};
-pub use procedure::{HandleRequest, RpcRequest, RpcResponse};
-pub use server::{RpcServer, RpcServerBuilder};
 
 pub mod deserializers;
 pub mod serializers;

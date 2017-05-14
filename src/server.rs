@@ -13,9 +13,9 @@ use miasht::server::{Request, Response, Connection};
 use serde::Deserialize;
 use url::Url;
 
-use {Result, Error, Method, ErrorKind};
+use {Result, Error, HttpMethod, ErrorKind};
 use deserializers::RpcRequestDeserializer;
-use procedure::{Procedure, HandleRequest, EntryPoint};
+use procedure::{Procedure, HandleRpc, EntryPoint};
 use serializers::RpcResponseSerializer;
 
 pub struct RpcServerBuilder {
@@ -31,14 +31,14 @@ impl RpcServerBuilder {
     }
     pub fn register<P, H>(&mut self, handler: H) -> Result<()>
         where P: Procedure,
-              H: HandleRequest<P>
+              H: HandleRpc<P>
     {
-        let handle_request = move |url, request, body| -> HandleRequestResult {
+        let handle_request = move |url, request, body| -> HandleRpcResult {
             // TODO: error handling
             let rpc_request = track_try_unwrap!(request_to_rpc_request::<P>(&url, &request, body));
             let handler = handler.clone();
             handler
-                .handle_request(rpc_request)
+                .handle_rpc(rpc_request)
                 .then(move |result| {
                           let rpc_response = result.expect("Unreachable");
                           let response =
@@ -118,9 +118,8 @@ fn rpc_response_to_response<P: Procedure>(connection: Connection<TcpStream>,
     track!(serializer.finish())
 }
 
-type HandleRequestResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
-type HandleRequestFn =
-    Box<Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRequestResult + Send + 'static>;
+type HandleRpcResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
+type HandleRpcFn = Box<Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRpcResult + Send + 'static>;
 
 #[derive(Clone)]
 struct RoutingTree {
@@ -179,11 +178,11 @@ impl RoutingTreeBuilder {
         RoutingTree { trie: Arc::new(self.trie) }
     }
     pub fn register<H: Send + 'static>(&mut self,
-                                       method: Method,
+                                       method: HttpMethod,
                                        entry_point: EntryPoint,
                                        handler: H)
                                        -> Result<()>
-        where H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRequestResult
+        where H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleRpcResult
     {
         track_try!(self.trie.insert(method, &entry_point, Box::new(handler)));
         Ok(())
@@ -198,9 +197,9 @@ impl Trie {
         Trie { root: TrieNode::new() }
     }
     pub fn insert(&mut self,
-                  method: Method,
+                  method: HttpMethod,
                   entry_point: &EntryPoint,
-                  handler: HandleRequestFn)
+                  handler: HandleRpcFn)
                   -> Result<()> {
         let mut node = &mut self.root;
         for segment in entry_point.segments() {
@@ -227,7 +226,7 @@ impl Trie {
 
 struct TrieNode {
     children: HashMap<Option<&'static str>, TrieNode>,
-    leafs: HashMap<Method, HandleRequestFn>,
+    leafs: HashMap<HttpMethod, HandleRpcFn>,
 }
 impl TrieNode {
     pub fn new() -> Self {
@@ -242,7 +241,7 @@ impl TrieNode {
             .get(&Some(segment))
             .or_else(|| self.children.get(&None))
     }
-    pub fn get_value(&self, method: Method) -> Option<&HandleRequestFn> {
+    pub fn get_value(&self, method: HttpMethod) -> Option<&HandleRpcFn> {
         self.leafs.get(&method)
     }
 }

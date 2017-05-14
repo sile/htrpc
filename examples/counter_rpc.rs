@@ -14,8 +14,8 @@ use std::sync::{Arc, Mutex};
 use clap::{App, Arg, SubCommand};
 use fibers::{Executor, Spawn, InPlaceExecutor};
 use futures::{BoxFuture, Future};
-use htrpc::{Method, RpcClient, RpcServerBuilder};
-use htrpc::{Procedure, RpcRequest, RpcResponse, EntryPoint, HandleRequest};
+use htrpc::{HttpMethod, RpcClient, RpcServerBuilder};
+use htrpc::{Procedure, RpcRequest, RpcResponse, EntryPoint, HandleRpc};
 
 fn main() {
     let matches = App::new("counter_rpc")
@@ -75,8 +75,8 @@ struct FetchAndAdd;
 impl Procedure for FetchAndAdd {
     type Request = FetchAndAddRequest;
     type Response = FetchAndAddResponse;
-    fn method() -> Method {
-        Method::Put
+    fn method() -> HttpMethod {
+        HttpMethod::Put
     }
     fn entry_point() -> EntryPoint {
         htrpc_entry_point!["counters", _]
@@ -92,9 +92,9 @@ impl FetchAndAddHandler {
         FetchAndAddHandler { counters: Arc::new(Mutex::new(HashMap::new())) }
     }
 }
-impl HandleRequest<FetchAndAdd> for FetchAndAddHandler {
+impl HandleRpc<FetchAndAdd> for FetchAndAddHandler {
     type Future = BoxFuture<FetchAndAddResponse, htrpc::Error>;
-    fn handle_request(self, request: FetchAndAddRequest) -> Self::Future {
+    fn handle_rpc(self, request: FetchAndAddRequest) -> Self::Future {
         let FetchAndAddRequest {
             path: (name,),
             query: AddValue { value },

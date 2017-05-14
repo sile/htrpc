@@ -5,7 +5,7 @@ use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use url::{self, Url};
 
-use {Result, Error, ErrorKind, Method};
+use {Result, Error, ErrorKind, HttpMethod};
 use procedure::EntryPoint;
 use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpBodySerializer, HttpHeaderSerializer};
 
@@ -14,7 +14,7 @@ use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpBodySerializer, Htt
 pub struct RpcRequestSerializer {
     temp_url: Url,
     is_path_initialized: bool,
-    method: Method,
+    method: HttpMethod,
     entry_point: EntryPoint,
     connection: Option<Connection<TcpStream>>,
     request: Option<RequestBuilder<TcpStream>>,
@@ -22,7 +22,10 @@ pub struct RpcRequestSerializer {
 }
 impl RpcRequestSerializer {
     /// Makes a new `RpcRequestSerializer` instance.
-    pub fn new(connection: Connection<TcpStream>, method: Method, entry_point: EntryPoint) -> Self {
+    pub fn new(connection: Connection<TcpStream>,
+               method: HttpMethod,
+               entry_point: EntryPoint)
+               -> Self {
         RpcRequestSerializer {
             temp_url: Url::parse("http://localhost/").expect("Never fail"),
             is_path_initialized: false,

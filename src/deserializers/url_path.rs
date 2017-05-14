@@ -33,19 +33,20 @@ impl<'de> UrlPathDeserializer<'de> {
         self.segments.peek().is_none()
     }
     fn finish(&mut self) -> Result<()> {
-        for i in self.index..self.entry_point.len() {
-            let expected = track_try!(self.entry_point.get_val(i).ok_or(ErrorKind::Invalid));
+        for segment in &self.entry_point.segments()[self.index..] {
+            let expected = track_try!(segment.as_option().ok_or(ErrorKind::Invalid));
             let actual = track_try!(self.segments.next().ok_or(ErrorKind::Invalid));
             track_assert_eq!(actual, expected, ErrorKind::Invalid);
         }
         Ok(())
     }
     fn next_value(&mut self) -> Result<&'de str> {
-        track_assert!(self.index < self.entry_point.len(), ErrorKind::Invalid);
+        track_assert!(self.index < self.entry_point.segments().len(),
+                      ErrorKind::Invalid);
         track_assert!(!self.is_end_of_segment(), ErrorKind::Invalid);
         let i = self.index;
         self.index += 1;
-        if let Some(expected) = self.entry_point.get_val(i) {
+        if let Some(expected) = self.entry_point.segments()[i].as_option() {
             let s = self.segments.next().unwrap();
             track_assert_eq!(s, expected, ErrorKind::Invalid);
             self.next_value()
