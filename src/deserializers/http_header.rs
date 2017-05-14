@@ -200,10 +200,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
         track_panic!(ErrorKind::Invalid);
     }
 
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        track_panic!(ErrorKind::Invalid);
+        let v = track_try!(self.next_bytes());
+        let v = track_try!(std::str::from_utf8(v));
+        track_assert_eq!(v, name, ErrorKind::Invalid);
+        track!(visitor.visit_unit())
     }
 
     fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>

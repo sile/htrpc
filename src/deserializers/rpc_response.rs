@@ -1,6 +1,6 @@
 use fibers::net::TcpStream;
 use miasht::client::Response;
-use serde::de::{self, Visitor};
+use serde::de::{self, Visitor, IntoDeserializer};
 
 use {Result, Error, ErrorKind};
 use deserializers::{HttpHeaderDeserializer, HttpBodyDeserializer};
@@ -8,6 +8,7 @@ use deserializers::{HttpHeaderDeserializer, HttpBodyDeserializer};
 #[derive(Debug, Clone, Copy)]
 enum Phase {
     Init,
+    Status,
     Header,
     Body,
 }
@@ -195,11 +196,15 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
         where K: de::DeserializeSeed<'de>
     {
-        use serde::de::IntoDeserializer;
         use serde::de::value::StrDeserializer;
-
         match self.phase {
             Phase::Init => {
+                self.phase = Phase::Status;
+                let deserializer: StrDeserializer<Error> = "status".into_deserializer();
+                let value = track_try!(seed.deserialize(deserializer));
+                Ok(Some(value))
+            }
+            Phase::Status => {
                 self.phase = Phase::Header;
                 let deserializer: StrDeserializer<Error> = "header".into_deserializer();
                 let value = track_try!(seed.deserialize(deserializer));
@@ -218,8 +223,14 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
         where V: de::DeserializeSeed<'de>
     {
+        use serde::de::value::U16Deserializer;
         match self.phase {
             Phase::Init => unreachable!(),
+            Phase::Status => {
+                let de: U16Deserializer<Error> = self.response.status().code().into_deserializer();
+                let v = track_try!(seed.deserialize(de));
+                Ok(v)
+            }
             Phase::Header => {
                 let mut de = HttpHeaderDeserializer::new(self.response.headers());
                 let v = track_try!(seed.deserialize(&mut de));
@@ -248,6 +259,7 @@ impl<'de, 'a> de::EnumAccess<'de> for Enum<'de, 'a> {
         use serde::de::value::StrDeserializer;
         let val = {
             let status = track_try!(status_code_to_str(self.0.response.status().code()));
+            self.0.phase = Phase::Status;
             let deserializer: StrDeserializer<Error> = status.into_deserializer();
             track_try!(seed.deserialize(deserializer))
         };

@@ -107,8 +107,8 @@ impl<'a, 'b> ser::Serializer for &'a mut HttpHeaderSerializer<'b> {
     fn serialize_unit(self) -> Result<Self::Ok> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-        track_panic!(ErrorKind::Invalid);
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
+        track!(self.serialize_str(name))
     }
     fn serialize_unit_variant(self,
                               _name: &'static str,

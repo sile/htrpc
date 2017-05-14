@@ -9,7 +9,6 @@ extern crate handy_async;
 extern crate miasht;
 #[macro_use]
 extern crate serde;
-#[cfg(test)]
 #[macro_use]
 extern crate serde_derive;
 extern crate serdeconv;
@@ -67,6 +66,7 @@ pub mod deserializers;
 pub mod json;
 pub mod json_pretty;
 pub mod msgpack;
+pub mod rfc7807;
 pub mod serializers;
 pub mod types;
 

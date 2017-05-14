@@ -7,17 +7,11 @@ use url::Url;
 
 use {Result, Error, ErrorKind};
 use procedure::EntryPoint;
-use types::HttpMethod;
+use types::{HttpMethod, HttpStatus};
 
 type HandleHttpRequestResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
 type HandleHttpRequest =
     Box<Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult + Send + 'static>;
-
-#[derive(Debug)]
-pub enum RouteError {
-    NotFound,
-    MethodNotAllowed,
-}
 
 #[derive(Clone)]
 pub struct Router {
@@ -28,17 +22,17 @@ impl Router {
     pub fn route(&self,
                  url: &Url,
                  request: &Request<TcpStream>)
-                 -> ::std::result::Result<&HandleHttpRequest, RouteError> {
+                 -> ::std::result::Result<&HandleHttpRequest, HttpStatus> {
         let mut trie = self.trie.root();
         for segment in url.path_segments().expect("Never fails") {
             if let Some(child) = trie.get_child(segment) {
                 trie = child;
             } else {
-                return Err(RouteError::NotFound);
+                return Err(HttpStatus::NotFound);
             }
         }
         trie.get_value(request.method())
-            .ok_or(RouteError::MethodNotAllowed)
+            .ok_or(HttpStatus::MethodNotAllowed)
     }
 }
 

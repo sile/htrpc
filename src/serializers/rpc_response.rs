@@ -1,8 +1,10 @@
 use fibers::net::TcpStream;
 use miasht::builtin::headers;
 use miasht::server::{Connection, ResponseBuilder, Response};
+use miasht::status::RawStatus;
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
+use serdeconv;
 
 use {Result, Error, ErrorKind};
 use serializers::{HttpBodySerializer, HttpHeaderSerializer};
@@ -16,6 +18,17 @@ pub struct RpcResponseSerializer {
     body: Vec<u8>,
 }
 impl RpcResponseSerializer {
+    /// Serializes the RPC response.
+    pub fn serialize<T>(rpc_response: T,
+                        connection: Connection<TcpStream>)
+                        -> Result<(Response<TcpStream>, Vec<u8>)>
+        where T: Serialize
+    {
+        let mut serializer = RpcResponseSerializer::new(connection);
+        track_try!(rpc_response.serialize(&mut serializer));
+        track!(serializer.finish())
+    }
+
     /// Makes a new `RpcResponseSerializer` instance.
     pub fn new(connection: Connection<TcpStream>) -> Self {
         RpcResponseSerializer {
@@ -44,7 +57,7 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
     type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
     type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
     type SerializeMap = Impossible<Self::Ok, Self::Error>;
-    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
     fn serialize_bool(self, _v: bool) -> Result<Self::Ok> {
@@ -153,7 +166,7 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        track_panic!(ErrorKind::Invalid);
+        Ok(self)
     }
     fn serialize_struct_variant(self,
                                 _name: &'static str,
@@ -166,6 +179,46 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         let response = self.connection.take().unwrap().build_response(status);
         self.response = Some(response);
         Ok(self)
+    }
+}
+impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
+    type Ok = ();
+    type Error = Error;
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
+        where T: ?Sized + Serialize
+    {
+        match key {
+            "status" => {
+                track_assert!(self.connection.is_some(), ErrorKind::Invalid);
+                let status = track_try!(serdeconv::to_json_string(value));
+                let status = track_try!(status.parse());
+                let status = track_try!(RawStatus::new(status, "")
+                                            .normalize()
+                                            .ok_or(ErrorKind::Invalid),
+                                        "Unknown HTTP status: {}",
+                                        status);
+                let response = self.connection.take().unwrap().build_response(status);
+                self.response = Some(response);
+                Ok(())
+            }
+            "header" => {
+                track_assert!(self.connection.is_none(), ErrorKind::Invalid);
+                let mut response = self.response.as_mut().unwrap();
+                let mut serializer = HttpHeaderSerializer::new(response.headers_mut());
+                track_try!(value.serialize(&mut serializer));
+                Ok(())
+            }
+            "body" => {
+                track_assert!(self.connection.is_none(), ErrorKind::Invalid);
+                let body = track_try!(value.serialize(HttpBodySerializer));
+                self.body = body;
+                Ok(())
+            }
+            _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
+        }
+    }
+    fn end(self) -> Result<Self::Ok> {
+        Ok(())
     }
 }
 impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {

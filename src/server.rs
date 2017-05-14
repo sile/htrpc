@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use fibers::{self, Spawn, BoxSpawn};
 use fibers::net::TcpStream;
 use fibers::net::futures::Connected;
-use futures::{Future, Poll, Async, Stream, BoxFuture};
+use futures::{self, Future, Poll, Async, Stream, BoxFuture};
 use futures::stream::StreamFuture;
 use handy_async::future::Phase;
 use miasht;
@@ -16,8 +16,10 @@ use url::Url;
 use {Result, Error, ErrorKind};
 use deserializers::RpcRequestDeserializer;
 use procedure::{Procedure, HandleRpc};
-use router::{Router, RouterBuilder, RouteError};
+use rfc7807;
+use router::{Router, RouterBuilder};
 use serializers::RpcResponseSerializer;
+use types::HttpStatus;
 
 /// The `RpcServer` builder.
 pub struct RpcServerBuilder {
@@ -62,12 +64,8 @@ impl RpcServerBuilder {
                 .handle_rpc(rpc_request)
                 .map_err(|_| unreachable!())
                 .and_then(move |rpc_response| {
-                              let (http_response, body) = {
-                                  let mut ser = RpcResponseSerializer::new(http_request.finish());
-                                  track_try!(rpc_response.serialize(&mut ser));
-                                  track_try!(ser.finish())
-                              };
-                              Ok((http_response, body))
+                              track!(RpcResponseSerializer::serialize(rpc_response,
+                                                                      http_request.finish()))
                           })
                 .boxed()
         };
@@ -162,8 +160,16 @@ impl HandleHttpRequest {
                     let url =
                         track_try!(Url::options().base_url(Some(&base)).parse(request.path()));
                     let future = match self.router.route(&url, &request) {
-                        Err(RouteError::NotFound) => panic!("TODO"),
-                        Err(RouteError::MethodNotAllowed) => panic!("TODO"),
+                        Err(status) => {
+                            let rpc_response =
+                                rfc7807::ErrorResponse::new(
+                                    status,
+                                    rfc7807::AboutBlankProblem::new(status));
+                            let result =
+                                track!(RpcResponseSerializer::serialize(rpc_response,
+                                                                        request.finish()));
+                            futures::done(result).boxed()
+                        }
                         Ok(handler) => handler(url, request, body),
                     };
                     Phase::C(future)
