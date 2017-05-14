@@ -1,7 +1,7 @@
 use futures::Future;
 use serde::{Serialize, Deserialize};
 
-use {Error, HttpMethod};
+use HttpMethod;
 
 /// Procedure definition.
 pub trait Procedure {
@@ -23,13 +23,15 @@ pub trait HandleRpc<P>: Clone + Send + 'static
     where P: Procedure
 {
     /// The `Future` which represents the result of an invocation of the `handle_rpc` method.
-    ///
-    /// If a future instance returns an `Error`, no HTTP response will respond to the client
-    /// (i.e., The TCP connection will be silently disconnected).
-    type Future: Future<Item = <P as Procedure>::Response, Error = Error> + Send + 'static;
+    type Future: Future<Item = <P as Procedure>::Response, Error = NeverFail> + Send + 'static;
 
     /// Handles an RPC request issued by a client.
     fn handle_rpc(self, request: <P as Procedure>::Request) -> Self::Future;
+}
+
+/// A marker type used to indicate that a future never fails.
+pub struct NeverFail {
+    _cannot_instantiate: (),
 }
 
 /// RPC Request.

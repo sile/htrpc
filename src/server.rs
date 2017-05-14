@@ -18,17 +18,21 @@ use deserializers::RpcRequestDeserializer;
 use procedure::{Procedure, HandleRpc, EntryPoint};
 use serializers::RpcResponseSerializer;
 
+/// The `RpcServer` builder.
 pub struct RpcServerBuilder {
     bind_addr: SocketAddr,
     router: RoutingTreeBuilder,
 }
 impl RpcServerBuilder {
+    /// Makes a new `RpcServerBuilder` instance.
     pub fn new(bind_addr: SocketAddr) -> Self {
         RpcServerBuilder {
             bind_addr,
             router: RoutingTreeBuilder::new(),
         }
     }
+
+    /// Registers an RPC handler.
     pub fn register<P, H>(&mut self, handler: H) -> Result<()>
         where P: Procedure,
               H: HandleRpc<P>
@@ -40,7 +44,7 @@ impl RpcServerBuilder {
             handler
                 .handle_rpc(rpc_request)
                 .then(move |result| {
-                          let rpc_response = result.expect("Unreachable");
+                          let rpc_response = result.expect("Never fails");
                           let response =
                               track_try_unwrap!(rpc_response_to_response::<P>(request.finish(),
                                                                               rpc_response));
@@ -52,6 +56,8 @@ impl RpcServerBuilder {
                        .register(P::method(), P::entry_point(), handle_request));
         Ok(())
     }
+
+    /// Starts the `Future` which represents the RPC server.
     pub fn start<S>(self, spawner: S) -> RpcServer
         where S: Spawn + Send + 'static
     {

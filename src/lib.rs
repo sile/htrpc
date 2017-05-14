@@ -21,7 +21,7 @@ pub use miasht::Method as HttpMethod;
 
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};
-pub use procedure::{EntryPoint, Procedure};
+pub use procedure::{EntryPoint, Procedure, NeverFail};
 pub use procedure::{HandleRpc, RpcRequest, RpcResponse};
 pub use server::{RpcServer, RpcServerBuilder};
 
