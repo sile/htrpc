@@ -9,10 +9,10 @@ extern crate handy_async;
 extern crate miasht;
 #[macro_use]
 extern crate serde;
-extern crate serdeconv;
 #[cfg(test)]
 #[macro_use]
 extern crate serde_derive;
+extern crate serdeconv;
 #[macro_use]
 extern crate slog;
 #[macro_use]
@@ -64,6 +64,9 @@ macro_rules! htrpc_expand_segment {
 }
 
 pub mod deserializers;
+pub mod json;
+pub mod json_pretty;
+pub mod msgpack;
 pub mod serializers;
 pub mod types;
 

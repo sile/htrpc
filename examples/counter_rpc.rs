@@ -116,7 +116,10 @@ impl HandleRpc<FetchAndAdd> for FetchAndAddHandler {
 
 #[derive(Debug, Serialize, Deserialize)]
 enum FetchAndAddResponse {
-    Ok { body: Value },
+    Ok {
+        #[serde(with = "htrpc::json")]
+        body: Value,
+    },
 }
 impl RpcResponse for FetchAndAddResponse {}
 
