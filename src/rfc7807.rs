@@ -90,7 +90,7 @@ impl ProblemHeader {
 /// let problem = Problem::trackable(HttpStatus::NotFound, error);
 /// let http_body = serdeconv::to_json_string_pretty(&problem).unwrap();
 /// assert_eq!(http_body, r#"{
-///   "type": "https://docs.rs/htrpc/0.1/htrpc/rfc7807/struct.TrackableProblem.html",
+///   "type": "https://docs.rs/htrpc/0.0.2/htrpc/rfc7807/struct.TrackableProblem.html",
 ///   "title": "An error",
 ///   "status": 404,
 ///   "detail": "something wrong",
@@ -105,8 +105,8 @@ pub enum Problem {
     #[serde(rename = "about:blank")]
     AboutBlank(AboutBlankProblem),
 
-    /// `type = "https://docs.rs/htrpc/0.1/htrpc/rfc7807/struct.TrackableProblem.html"`.
-    #[serde(rename = "https://docs.rs/htrpc/0.1/htrpc/rfc7807/struct.TrackableProblem.html")]
+    /// `type = "https://docs.rs/htrpc/0.0.2/htrpc/rfc7807/struct.TrackableProblem.html"`.
+    #[serde(rename = "https://docs.rs/htrpc/0.0.2/htrpc/rfc7807/struct.TrackableProblem.html")]
     Trackable(TrackableProblem),
 }
 impl Problem {
