@@ -17,6 +17,7 @@ extern crate slog;
 #[macro_use]
 extern crate trackable;
 extern crate url;
+extern crate url_serde;
 
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};
@@ -72,6 +73,7 @@ pub mod types;
 
 mod client;
 mod error;
+mod misc;
 mod procedure;
 mod router;
 mod server;

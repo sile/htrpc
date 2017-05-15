@@ -9,14 +9,14 @@ use miasht;
 use miasht::builtin::io::IoExt;
 use miasht::builtin::futures::FutureExt;
 use miasht::server::{Connection, Request, Response};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use slog::{Logger, Discard};
-use url::Url;
 
 use {Result, Error, ErrorKind};
 use deserializers::RpcRequestDeserializer;
+use misc;
 use procedure::{Procedure, HandleRpc};
-use rfc7807;
+use rfc7807::Problem;
 use router::{Router, RouterBuilder};
 use serializers::RpcResponseSerializer;
 use types::HttpStatus;
@@ -50,12 +50,19 @@ impl RpcServerBuilder {
         let handle_http_request = move |url, http_request, body| {
             let handler = handler.clone();
             let rpc_request = {
-                let mut de =
-                    RpcRequestDeserializer::new(P::entry_point(), &url, &http_request, body);
-                match track!(Deserialize::deserialize(&mut de)) {
+                let deserialize_result = {
+                    let mut de =
+                        RpcRequestDeserializer::new(P::entry_point(), &url, &http_request, body);
+                    track!(Deserialize::deserialize(&mut de))
+                };
+                match deserialize_result {
                     Err(e) => {
-                        //
-                        panic!("TODO: response 400");
+                        let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
+                            .into_response();
+                        let result = track!(RpcResponseSerializer::serialize(rpc_response,
+                                                                             http_request
+                                                                                 .finish()));
+                        return futures::done(result).boxed();
                     }
                     Ok(r) => r,
                 }
@@ -155,22 +162,27 @@ impl HandleHttpRequest {
                            request.method(),
                            request.path(),
                            body.len());
-                    let base = Url::parse("http://localhost/").expect("Never fails");
-                    // TODO: Handle InvalidRequest
-                    let url =
-                        track_try!(Url::options().base_url(Some(&base)).parse(request.path()));
-                    let future = match self.router.route(&url, &request) {
-                        Err(status) => {
-                            let rpc_response =
-                                rfc7807::ErrorResponse::new(
-                                    status,
-                                    rfc7807::AboutBlankProblem::new(status));
+                    let future = match track!(misc::parse_relative_url(request.path())) {
+                        Err(e) => {
+                            let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
+                                .into_response();
                             let result =
                                 track!(RpcResponseSerializer::serialize(rpc_response,
                                                                         request.finish()));
                             futures::done(result).boxed()
                         }
-                        Ok(handler) => handler(url, request, body),
+                        Ok(url) => {
+                            match self.router.route(&url, &request) {
+                                Err(status) => {
+                                    let rpc_response = Problem::about_blank(status).into_response();
+                                    let result =
+                                        track!(RpcResponseSerializer::serialize(rpc_response,
+                                                                                request.finish()));
+                                    futures::done(result).boxed()
+                                }
+                                Ok(handler) => handler(url, request, body),
+                            }
+                        }
                     };
                     Phase::C(future)
                 }
