@@ -269,8 +269,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
         track!(self.deserialize_str(visitor))
     }
 
-    forward_to_deserialize_any! {
-        ignored_any
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
+        where V: Visitor<'de>
+    {
+        track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
 }
 impl<'de, 'a> de::SeqAccess<'de> for &'a mut UrlPathDeserializer<'de> {

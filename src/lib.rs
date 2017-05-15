@@ -7,7 +7,6 @@ extern crate fibers;
 extern crate futures;
 extern crate handy_async;
 extern crate miasht;
-#[macro_use]
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
