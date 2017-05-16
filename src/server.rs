@@ -1,7 +1,7 @@
+use std::io;
 use std::net::SocketAddr;
 use fibers::{self, Spawn, BoxSpawn};
 use fibers::net::TcpStream;
-use fibers::net::futures::Connected;
 use futures::{self, Future, Poll, Async, Stream, BoxFuture};
 use futures::stream::StreamFuture;
 use handy_async::future::Phase;
@@ -119,10 +119,14 @@ impl Future for RpcServer {
                     let (connected, addr) = track_try!(client.ok_or(ErrorKind::Invalid));
                     debug!(self.logger, "New client is connected: {}", addr);
 
+                    let connected = connected.then(|result| {
+                                                       let stream = track_try!(result);
+                                                       Ok(Connection::new(stream, 1024, 8096, 32))
+                                                   });
                     let future = HandleHttpRequest {
                         logger: self.logger.clone(),
                         router: self.router.clone(),
-                        phase: Phase::A(connected),
+                        phase: Phase::A(connected.boxed()),
                     };
                     self.spawner.spawn(future);
                     Phase::B(incoming.into_future())
@@ -137,26 +141,37 @@ impl Future for RpcServer {
 struct HandleHttpRequest {
     logger: Logger,
     router: Router,
-    phase: Phase<Connected,
-                 BoxFuture<(Request<TcpStream>, Vec<u8>), miasht::Error>,
-                 BoxFuture<(Response<TcpStream>, Vec<u8>), Error>,
-                 BoxFuture<(), miasht::Error>>,
+    phase: Phase<BoxFuture<Connection<TcpStream>, miasht::Error>,
+                 BoxFuture<Option<(Request<TcpStream>, Vec<u8>)>, miasht::Error>,
+                 BoxFuture<(Response<TcpStream>, Vec<u8>), Error>>,
 }
 impl HandleHttpRequest {
     fn poll_impl(&mut self) -> Poll<(), Error> {
         loop {
             let next = match track_try!(self.phase.poll()) {
                 Async::NotReady => return Ok(Async::NotReady),
-                Async::Ready(Phase::A(stream)) => {
-                    let connection = Connection::new(stream, 1024, 8096, 32);
+                Async::Ready(Phase::A(connection)) => {
                     let future = connection
                         .read_request()
                         .and_then(|req| req.into_body_reader())
                         .and_then(|req| req.read_all_bytes())
-                        .map(|(req, body)| (req.into_inner(), body));
+                        .map(|(req, body)| Some((req.into_inner(), body)))
+                        .or_else(|e| {
+                            if let Some(e) = e.concrete_cause::<io::Error>() {
+                                if e.kind() == io::ErrorKind::UnexpectedEof ||
+                                   e.kind() == io::ErrorKind::ConnectionReset {
+                                    // The connection is reset by the peer.
+                                    return Ok(None);
+                                }
+                            }
+                            Err(e)
+                        });
                     Phase::B(future.boxed())
                 }
-                Async::Ready(Phase::B((request, body))) => {
+                Async::Ready(Phase::B(None)) => {
+                    return Ok(Async::Ready(()));
+                }
+                Async::Ready(Phase::B(Some((request, body)))) => {
                     debug!(self.logger,
                            "RPC request: method={}, path={:?}, body_bytes={}",
                            request.method(),
@@ -187,14 +202,8 @@ impl HandleHttpRequest {
                     Phase::C(future)
                 }
                 Async::Ready(Phase::C((response, body))) => {
-                    let future = response
-                        .write_all_bytes(body)
-                        .and_then(|res| res)
-                        .map(|_| ());
-                    Phase::D(future.boxed())
-                }
-                Async::Ready(Phase::D(())) => {
-                    return Ok(Async::Ready(()));
+                    let future = response.write_all_bytes(body).and_then(|res| res);
+                    Phase::A(future.boxed())
                 }
                 _ => unreachable!(),
             };

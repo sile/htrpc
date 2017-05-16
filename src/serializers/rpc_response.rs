@@ -43,8 +43,6 @@ impl RpcResponseSerializer {
         track_assert!(self.response.is_some(), ErrorKind::Invalid);
         let mut response = self.response.expect("Never fail");
         response.add_header(&headers::ContentLength(self.body.len() as u64));
-        // TODO: Support keep-alive
-        response.add_header(&headers::Connection::Close);
         Ok((response.finish(), self.body))
     }
 }
