@@ -271,10 +271,10 @@ impl<'de, 'a> de::VariantAccess<'de> for Enum<'de, 'a> {
     fn unit_variant(self) -> Result<()> {
         Ok(())
     }
-    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value>
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
         where T: de::DeserializeSeed<'de>
     {
-        track_panic!(ErrorKind::Invalid);
+        seed.deserialize(self.0)
     }
     fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
