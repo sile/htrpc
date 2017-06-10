@@ -17,7 +17,7 @@ use types::HttpStatus;
 /// [RFC 7807]: https://tools.ietf.org/html/rfc7807
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProblemResponse {
-    status: u16,
+    status: Option<u16>,
     header: ProblemHeader,
     #[serde(with = "::json_pretty")]
     body: Problem,
@@ -25,7 +25,7 @@ pub struct ProblemResponse {
 impl ProblemResponse {
     fn new(body: Problem) -> Self {
         ProblemResponse {
-            status: body.get_status_code(),
+            status: Some(body.get_status_code()),
             header: ProblemHeader::new(),
             body: body,
         }
