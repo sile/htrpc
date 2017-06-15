@@ -1,6 +1,6 @@
 use std;
 use serde::de::{self, Visitor};
-use trackable::error::IntoTrackableError;
+use trackable::error::ErrorKindExt;
 
 use {Result, Error, ErrorKind};
 
@@ -28,7 +28,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_bool(v))
     }
 
@@ -36,7 +36,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_i8(v))
     }
 
@@ -44,7 +44,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_i16(v))
     }
 
@@ -52,7 +52,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_i32(v))
     }
 
@@ -60,7 +60,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_i64(v))
     }
 
@@ -68,7 +68,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_u8(v))
     }
 
@@ -76,7 +76,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_u16(v))
     }
 
@@ -84,7 +84,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_u32(v))
     }
 
@@ -92,7 +92,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_u64(v))
     }
 
@@ -100,7 +100,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_f32(v))
     }
 
@@ -108,7 +108,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(parse_slice(&self.body[..]));
+        let v = track!(parse_slice(&self.body[..]))?;
         track!(visitor.visit_f64(v))
     }
 
@@ -130,7 +130,7 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(String::from_utf8(self.body));
+        let v = track!(String::from_utf8(self.body).map_err(Error::from))?;
         track!(visitor.visit_string(v))
     }
 
@@ -249,9 +249,11 @@ impl<'de> de::Deserializer<'de> for HttpBodyDeserializer {
 
 fn parse_slice<T: std::str::FromStr>(bytes: &[u8]) -> Result<T>
 where
-    ErrorKind: IntoTrackableError<T::Err>,
+    Error: From<T::Err>,
 {
-    let s = track_try!(std::str::from_utf8(bytes));
-    let v = track_try!(s.parse());
+    let s = std::str::from_utf8(bytes).map_err(|e| {
+        track!(ErrorKind::Invalid.cause(e))
+    })?;
+    let v = track!(s.parse().map_err(Error::from))?;
     Ok(v)
 }

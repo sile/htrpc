@@ -11,6 +11,7 @@ use miasht::builtin::futures::FutureExt;
 use miasht::server::{Connection, Request, Response};
 use serde::Deserialize;
 use slog::{Logger, Discard};
+use trackable::error::ErrorKindExt;
 
 use {Result, Error, ErrorKind};
 use deserializers::RpcRequestDeserializer;
@@ -80,11 +81,11 @@ impl RpcServerBuilder {
                 })
                 .boxed()
         };
-        track_try!(self.router.register_handler(
+        track!(self.router.register_handler(
             P::method(),
             P::entry_point(),
             handle_http_request,
-        ));
+        ))?;
         Ok(())
     }
 
@@ -115,7 +116,7 @@ impl Future for RpcServer {
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
-            let next = match track_try!(self.phase.poll()) {
+            let next = match track!(self.phase.poll().map_err(Error::from))? {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(listener)) => {
                     info!(
@@ -126,11 +127,12 @@ impl Future for RpcServer {
                     Phase::B(listener.incoming().into_future())
                 }
                 Async::Ready(Phase::B((client, incoming))) => {
-                    let (connected, addr) = track_try!(client.ok_or(ErrorKind::Invalid));
+                    let (connected, addr) =
+                        track!(client.ok_or_else(|| ErrorKind::Invalid.error()))?;
                     debug!(self.logger, "New client is connected: {}", addr);
 
                     let connected = connected.then(|result| {
-                        let stream = track_try!(result);
+                        let stream = track!(result.map_err(miasht::Error::from))?;
                         Ok(Connection::new(stream, 1024, 8096, 32))
                     });
                     let future = HandleHttpRequest {
@@ -160,7 +162,7 @@ struct HandleHttpRequest {
 impl HandleHttpRequest {
     fn poll_impl(&mut self) -> Poll<(), Error> {
         loop {
-            let next = match track_try!(self.phase.poll()) {
+            let next = match track!(self.phase.poll().map_err(Error::from))? {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(connection)) => {
                     let future = connection

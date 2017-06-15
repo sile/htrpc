@@ -5,7 +5,7 @@ use handy_async::future::Phase;
 use miasht;
 use serde::{de, ser};
 use serdeconv;
-use trackable::error::{TrackableError, IntoTrackableError};
+use trackable::error::TrackableError;
 use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt};
 use url;
 
@@ -13,6 +13,78 @@ use url;
 #[derive(Debug, Clone)]
 pub struct Error(TrackableError<ErrorKind>);
 derive_traits_for_trackable_error_newtype!(Error, ErrorKind);
+impl From<io::Error> for Error {
+    fn from(f: io::Error) -> Self {
+        ErrorKind::Other.cause(f).into()
+    }
+}
+impl<T> From<(io::Error, T)> for Error {
+    fn from((f, _): (io::Error, T)) -> Self {
+        ErrorKind::Other.cause(f).into()
+    }
+}
+impl From<std::str::Utf8Error> for Error {
+    fn from(f: std::str::Utf8Error) -> Self {
+        ErrorKind::Invalid.cause(f).into()
+    }
+}
+impl From<std::str::ParseBoolError> for Error {
+    fn from(f: std::str::ParseBoolError) -> Self {
+        ErrorKind::Invalid.cause(f).into()
+    }
+}
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(f: std::string::FromUtf8Error) -> Self {
+        ErrorKind::Invalid.cause(f).into()
+    }
+}
+impl From<std::num::ParseIntError> for Error {
+    fn from(f: std::num::ParseIntError) -> Self {
+        ErrorKind::Invalid.cause(f).into()
+    }
+}
+impl From<std::num::ParseFloatError> for Error {
+    fn from(f: std::num::ParseFloatError) -> Self {
+        ErrorKind::Invalid.cause(f).into()
+    }
+}
+impl From<url::ParseError> for Error {
+    fn from(f: url::ParseError) -> Self {
+        ErrorKind::Invalid.cause(f).into()
+    }
+}
+impl From<miasht::Error> for Error {
+    fn from(f: miasht::Error) -> Self {
+        ErrorKind::Other.takes_over(f).into()
+    }
+}
+impl From<serdeconv::Error> for Error {
+    fn from(f: serdeconv::Error) -> Self {
+        if *f.kind() == serdeconv::ErrorKind::Invalid {
+            ErrorKind::Invalid.takes_over(f).into()
+        } else {
+            ErrorKind::Other.takes_over(f).into()
+        }
+    }
+}
+impl<A, B, C, D, E> From<Phase<A, B, C, D, E>> for Error
+where
+    Error: From<A>,
+    Error: From<B>,
+    Error: From<C>,
+    Error: From<D>,
+    Error: From<E>,
+{
+    fn from(f: Phase<A, B, C, D, E>) -> Self {
+        match f {
+            Phase::A(e) => track!(Error::from(e), "Phase::A"),
+            Phase::B(e) => track!(Error::from(e), "Phase::B"),
+            Phase::C(e) => track!(Error::from(e), "Phase::C"),
+            Phase::D(e) => track!(Error::from(e), "Phase::D"),
+            Phase::E(e) => track!(Error::from(e), "Phase::E"),
+        }
+    }
+}
 impl ser::Error for Error {
     fn custom<T>(msg: T) -> Self
     where
@@ -40,74 +112,3 @@ pub enum ErrorKind {
     Other,
 }
 impl TrackableErrorKind for ErrorKind {}
-impl IntoTrackableError<io::Error> for ErrorKind {
-    fn into_trackable_error(e: io::Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
-    }
-}
-impl<T> IntoTrackableError<(io::Error, T)> for ErrorKind {
-    fn into_trackable_error((e, _): (io::Error, T)) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.cause(e)
-    }
-}
-impl IntoTrackableError<std::str::Utf8Error> for ErrorKind {
-    fn into_trackable_error(e: std::str::Utf8Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Invalid.cause(e)
-    }
-}
-impl IntoTrackableError<std::str::ParseBoolError> for ErrorKind {
-    fn into_trackable_error(e: std::str::ParseBoolError) -> TrackableError<ErrorKind> {
-        ErrorKind::Invalid.cause(e)
-    }
-}
-impl IntoTrackableError<std::string::FromUtf8Error> for ErrorKind {
-    fn into_trackable_error(e: std::string::FromUtf8Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Invalid.cause(e)
-    }
-}
-impl IntoTrackableError<std::num::ParseIntError> for ErrorKind {
-    fn into_trackable_error(e: std::num::ParseIntError) -> TrackableError<ErrorKind> {
-        ErrorKind::Invalid.cause(e)
-    }
-}
-impl IntoTrackableError<std::num::ParseFloatError> for ErrorKind {
-    fn into_trackable_error(e: std::num::ParseFloatError) -> TrackableError<ErrorKind> {
-        ErrorKind::Invalid.cause(e)
-    }
-}
-impl IntoTrackableError<url::ParseError> for ErrorKind {
-    fn into_trackable_error(e: url::ParseError) -> TrackableError<ErrorKind> {
-        ErrorKind::Invalid.cause(e)
-    }
-}
-impl IntoTrackableError<miasht::Error> for ErrorKind {
-    fn into_trackable_error(e: miasht::Error) -> TrackableError<ErrorKind> {
-        ErrorKind::Other.takes_over(e)
-    }
-}
-impl IntoTrackableError<serdeconv::Error> for ErrorKind {
-    fn into_trackable_error(e: serdeconv::Error) -> TrackableError<ErrorKind> {
-        if *e.kind() == serdeconv::ErrorKind::Invalid {
-            ErrorKind::Invalid.takes_over(e)
-        } else {
-            ErrorKind::Other.takes_over(e)
-        }
-    }
-}
-impl<A, B, C, D, E> IntoTrackableError<Phase<A, B, C, D, E>> for ErrorKind
-    where ErrorKind: IntoTrackableError<A>,
-          ErrorKind: IntoTrackableError<B>,
-          ErrorKind: IntoTrackableError<C>,
-          ErrorKind: IntoTrackableError<D>,
-          ErrorKind: IntoTrackableError<E>
-{
-    fn into_trackable_error(from: Phase<A, B, C, D, E>) -> TrackableError<ErrorKind> {
-        match from {
-            Phase::A(e) => track!(ErrorKind::into_trackable_error(e), "Phase::A"),
-            Phase::B(e) => track!(ErrorKind::into_trackable_error(e), "Phase::B"),
-            Phase::C(e) => track!(ErrorKind::into_trackable_error(e), "Phase::C"),
-            Phase::D(e) => track!(ErrorKind::into_trackable_error(e), "Phase::D"),
-            Phase::E(e) => track!(ErrorKind::into_trackable_error(e), "Phase::E"),
-        }
-    }
-}

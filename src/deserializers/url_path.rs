@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use std::iter::Peekable;
 use std::str::Split;
 use serde::de::{self, Visitor};
-use trackable::error::IntoTrackableError;
 use url::{self, Url};
+use trackable::error::ErrorKindExt;
 
 use {Result, Error, ErrorKind};
 use types::EntryPoint;
@@ -21,7 +21,9 @@ pub struct UrlPathDeserializer<'de> {
 impl<'de> UrlPathDeserializer<'de> {
     /// Makes a new `UrlPathDeserializer` instance.
     pub fn new(entry_point: EntryPoint, url: &'de Url) -> Result<Self> {
-        let segments = track_try!(url.path_segments().ok_or(ErrorKind::Invalid));
+        let segments = track!(url.path_segments().ok_or_else(
+            || ErrorKind::Invalid.error(),
+        ))?;
         Ok(UrlPathDeserializer {
             in_seq: false,
             segments: segments.peekable(),
@@ -35,8 +37,12 @@ impl<'de> UrlPathDeserializer<'de> {
     }
     fn finish(&mut self) -> Result<()> {
         for segment in &self.entry_point.segments()[self.index..] {
-            let expected = track_try!(segment.as_option().ok_or(ErrorKind::Invalid));
-            let actual = track_try!(self.segments.next().ok_or(ErrorKind::Invalid));
+            let expected = track!(segment.as_option().ok_or_else(
+                || ErrorKind::Invalid.error(),
+            ))?;
+            let actual = track!(self.segments.next().ok_or_else(
+                || ErrorKind::Invalid.error(),
+            ))?;
             track_assert_eq!(actual, expected, ErrorKind::Invalid);
         }
         Ok(())
@@ -73,8 +79,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_bool(v))
     }
 
@@ -82,8 +88,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_i8(v))
     }
 
@@ -91,8 +97,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_i16(v))
     }
 
@@ -100,8 +106,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_i32(v))
     }
 
@@ -109,8 +115,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_i64(v))
     }
 
@@ -118,8 +124,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_u8(v))
     }
 
@@ -127,8 +133,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_u16(v))
     }
 
@@ -136,8 +142,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_u32(v))
     }
 
@@ -145,8 +151,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_u64(v))
     }
 
@@ -154,8 +160,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_f32(v))
     }
 
@@ -163,8 +169,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(parse_escaped_str(v));
+        let v = track!(self.next_value())?;
+        let v = track!(parse_escaped_str(v))?;
         track!(visitor.visit_f64(v))
     }
 
@@ -179,8 +185,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_value());
-        let v = track_try!(url::percent_encoding::percent_decode(v.as_bytes()).decode_utf8());
+        let v = track!(self.next_value())?;
+        let v = track!(
+            url::percent_encoding::percent_decode(v.as_bytes())
+                .decode_utf8()
+                .map_err(Error::from)
+        )?;
         match v {
             Cow::Borrowed(s) => track!(visitor.visit_borrowed_str(s)),
             Cow::Owned(s) => track!(visitor.visit_string(s)),
@@ -316,10 +326,10 @@ impl<'de, 'a> de::SeqAccess<'de> for &'a mut UrlPathDeserializer<'de> {
         T: de::DeserializeSeed<'de>,
     {
         if self.free_vars == 0 {
-            track_try!(self.finish());
+            track!(self.finish())?;
             Ok(None)
         } else {
-            let v = track_try!(seed.deserialize(&mut **self));
+            let v = track!(seed.deserialize(&mut **self))?;
             Ok(Some(v))
         }
     }
@@ -327,10 +337,12 @@ impl<'de, 'a> de::SeqAccess<'de> for &'a mut UrlPathDeserializer<'de> {
 
 fn parse_escaped_str<T: std::str::FromStr>(s: &str) -> Result<T>
 where
-    ErrorKind: IntoTrackableError<T::Err>,
+    Error: From<T::Err>,
 {
-    let s = track_try!(url::percent_encoding::percent_decode(s.as_bytes()).decode_utf8());
-    let v = track_try!(s.parse(), "s={:?}", s);
+    let s = url::percent_encoding::percent_decode(s.as_bytes())
+        .decode_utf8()
+        .map_err(|e| track!(ErrorKind::Invalid.cause(e)))?;
+    let v = track!(s.parse().map_err(Error::from), "s={:?}", s)?;
     Ok(v)
 }
 

@@ -188,14 +188,14 @@ impl<'a, 'b> ser::SerializeMap for &'a mut HttpHeaderSerializer<'b> {
     where
         T: ?Sized + Serialize,
     {
-        track_try!(key.serialize(&mut **self));
+        track!(key.serialize(&mut **self))?;
         Ok(())
     }
     fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        track_try!(value.serialize(&mut **self));
+        track!(value.serialize(&mut **self))?;
         Ok(())
     }
     fn end(self) -> Result<Self::Ok> {
@@ -210,7 +210,7 @@ impl<'a, 'b> ser::SerializeStruct for &'a mut HttpHeaderSerializer<'b> {
         T: ?Sized + Serialize,
     {
         self.key = Some(Cow::Borrowed(key));
-        track_try!(value.serialize(&mut **self));
+        track!(value.serialize(&mut **self))?;
         Ok(())
     }
     fn end(self) -> Result<Self::Ok> {
@@ -225,7 +225,7 @@ impl<'a, 'b> ser::SerializeStructVariant for &'a mut HttpHeaderSerializer<'b> {
         T: ?Sized + Serialize,
     {
         self.key = Some(Cow::Borrowed(key));
-        track_try!(value.serialize(&mut **self));
+        track!(value.serialize(&mut **self))?;
         Ok(())
     }
     fn end(self) -> Result<Self::Ok> {

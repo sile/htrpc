@@ -234,19 +234,19 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
             Phase::Init => {
                 self.phase = Phase::Status;
                 let deserializer: StrDeserializer<Error> = "status".into_deserializer();
-                let value = track_try!(seed.deserialize(deserializer));
+                let value = track!(seed.deserialize(deserializer))?;
                 Ok(Some(value))
             }
             Phase::Status => {
                 self.phase = Phase::Header;
                 let deserializer: StrDeserializer<Error> = "header".into_deserializer();
-                let value = track_try!(seed.deserialize(deserializer));
+                let value = track!(seed.deserialize(deserializer))?;
                 Ok(Some(value))
             }
             Phase::Header => {
                 self.phase = Phase::Body;
                 let deserializer: StrDeserializer<Error> = "body".into_deserializer();
-                let value = track_try!(seed.deserialize(deserializer));
+                let value = track!(seed.deserialize(deserializer))?;
                 Ok(Some(value))
             }
             Phase::Body => Ok(None),
@@ -262,19 +262,19 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
             Phase::Init => unreachable!(),
             Phase::Status => {
                 let de: U16Deserializer<Error> = self.response.status().code().into_deserializer();
-                let v = track_try!(seed.deserialize(de));
+                let v = track!(seed.deserialize(de))?;
                 Ok(v)
             }
             Phase::Header => {
                 let mut de = HttpHeaderDeserializer::new(self.response.headers());
-                let v = track_try!(seed.deserialize(&mut de));
+                let v = track!(seed.deserialize(&mut de))?;
                 Ok(v)
             }
             Phase::Body => {
                 use std::mem;
                 let body = mem::replace(&mut self.body, Vec::new());
                 let de = HttpBodyDeserializer::new(body);
-                let v = track_try!(seed.deserialize(de));
+                let v = track!(seed.deserialize(de))?;
                 Ok(v)
             }
         }
@@ -293,10 +293,10 @@ impl<'de, 'a> de::EnumAccess<'de> for Enum<'de, 'a> {
         use serde::de::IntoDeserializer;
         use serde::de::value::StrDeserializer;
         let val = {
-            let status = track_try!(status_code_to_str(self.0.response.status().code()));
+            let status = track!(status_code_to_str(self.0.response.status().code()))?;
             self.0.phase = Phase::Status;
             let deserializer: StrDeserializer<Error> = status.into_deserializer();
-            track_try!(seed.deserialize(deserializer))
+            track!(seed.deserialize(deserializer))?
         };
         Ok((val, self))
     }

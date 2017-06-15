@@ -1,6 +1,7 @@
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use url::{Url, PathSegmentsMut};
+use trackable::error::ErrorKindExt;
 
 use {Result, Error, ErrorKind};
 use types::EntryPoint;
@@ -15,7 +16,9 @@ pub struct UrlPathSerializer<'a> {
 impl<'a> UrlPathSerializer<'a> {
     /// Makes a new `UrlPathSerializer` instance.
     pub fn new(entry_point: &'a EntryPoint, url: &'a mut Url) -> Result<Self> {
-        let segments = track_try!(url.path_segments_mut().map_err(|_| ErrorKind::Invalid));
+        let segments = track!(url.path_segments_mut().map_err(
+            |_| ErrorKind::Invalid.error(),
+        ))?;
         Ok(UrlPathSerializer {
             segments,
             entry_point,
@@ -65,7 +68,7 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
         let s = if v { "ture" } else { "false" };
-        track_try!(self.bind_next_var(s));
+        track!(self.bind_next_var(s))?;
         Ok(())
     }
     fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
@@ -78,8 +81,7 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
         track!(self.serialize_i64(v as i64))
     }
     fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
-        track_try!(self.bind_next_var(&v.to_string()));
-        Ok(())
+        track!(self.bind_next_var(&v.to_string()))
     }
     fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
         track!(self.serialize_u64(v as u64))
@@ -91,22 +93,19 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
         track!(self.serialize_u64(v as u64))
     }
     fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
-        track_try!(self.bind_next_var(&v.to_string()));
-        Ok(())
+        track!(self.bind_next_var(&v.to_string()))
     }
     fn serialize_f32(self, v: f32) -> Result<Self::Ok> {
         track!(self.serialize_f64(v as f64))
     }
     fn serialize_f64(self, v: f64) -> Result<Self::Ok> {
-        track_try!(self.bind_next_var(&v.to_string()));
-        Ok(())
+        track!(self.bind_next_var(&v.to_string()))
     }
     fn serialize_char(self, v: char) -> Result<Self::Ok> {
         track!(self.serialize_str(&v.to_string()))
     }
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-        track_try!(self.bind_next_var(v));
-        Ok(())
+        track!(self.bind_next_var(v))
     }
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok> {
         track_panic!(ErrorKind::Invalid);
@@ -124,14 +123,14 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
         track_assert!(!self.is_started, ErrorKind::Invalid);
         track_assert_eq!(self.var_count(), 0, ErrorKind::Invalid);
         self.is_started = true;
-        track_try!(self.finish());
+        track!(self.finish())?;
         Ok(())
     }
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
         track_assert!(!self.is_started, ErrorKind::Invalid);
         track_assert_eq!(self.var_count(), 0, ErrorKind::Invalid);
         self.is_started = true;
-        track_try!(self.finish());
+        track!(self.finish())?;
         Ok(())
     }
     fn serialize_unit_variant(
@@ -214,11 +213,11 @@ impl<'a, 'b> ser::SerializeTuple for &'a mut UrlPathSerializer<'b> {
     where
         T: ?Sized + Serialize,
     {
-        track_try!(value.serialize(&mut **self));
+        track!(value.serialize(&mut **self))?;
         Ok(())
     }
     fn end(self) -> Result<Self::Ok> {
-        track_try!(self.finish());
+        track!(self.finish())?;
         Ok(())
     }
 }
@@ -229,11 +228,11 @@ impl<'a, 'b> ser::SerializeTupleStruct for &'a mut UrlPathSerializer<'b> {
     where
         T: ?Sized + Serialize,
     {
-        track_try!(value.serialize(&mut **self));
+        track!(value.serialize(&mut **self))?;
         Ok(())
     }
     fn end(self) -> Result<Self::Ok> {
-        track_try!(self.finish());
+        track!(self.finish())?;
         Ok(())
     }
 }
@@ -244,11 +243,11 @@ impl<'a, 'b> ser::SerializeTupleVariant for &'a mut UrlPathSerializer<'b> {
     where
         T: ?Sized + Serialize,
     {
-        track_try!(value.serialize(&mut **self));
+        track!(value.serialize(&mut **self))?;
         Ok(())
     }
     fn end(self) -> Result<Self::Ok> {
-        track_try!(self.finish());
+        track!(self.finish())?;
         Ok(())
     }
 }

@@ -60,7 +60,7 @@ impl RouterBuilder {
     where
         H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult,
     {
-        track_try!(self.trie.insert(method, &entry_point, Box::new(handler)));
+        track!(self.trie.insert(method, &entry_point, Box::new(handler)))?;
         Ok(())
     }
 }

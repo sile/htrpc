@@ -226,9 +226,8 @@ mod tracking_number {
     use serde::de;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use trackable::TrackingNumber;
-    use trackable::error::TrackableError;
 
-    use ErrorKind;
+    use Error;
 
     pub fn serialize<S>(value: &Option<TrackingNumber>, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -243,9 +242,8 @@ mod tracking_number {
     {
         let hex: Option<String> = Option::deserialize(deserializer)?;
         if let Some(hex) = hex {
-            let value = track_err!(u64::from_str_radix(&hex, 16)).map_err(
-                |e: TrackableError<ErrorKind>| de::Error::custom(e),
-            )?;
+            let value = track!(u64::from_str_radix(&hex, 16).map_err(Error::from))
+                .map_err(|e| de::Error::custom(e))?;
             Ok(Some(TrackingNumber(value)))
         } else {
             Ok(None)

@@ -190,11 +190,11 @@ impl<'a> ser::SerializeStruct for &'a mut RpcRequestSerializer {
             "path" => {
                 track_assert!(self.connection.is_some(), ErrorKind::Invalid);
                 {
-                    let mut serializer = track_try!(UrlPathSerializer::new(
+                    let mut serializer = track!(UrlPathSerializer::new(
                         &self.entry_point,
                         &mut self.temp_url,
-                    ));
-                    track_try!(value.serialize(&mut serializer));
+                    ))?;
+                    track!(value.serialize(&mut serializer))?;
                 }
                 self.is_path_initialized = true;
                 Ok(())
@@ -202,16 +202,16 @@ impl<'a> ser::SerializeStruct for &'a mut RpcRequestSerializer {
             "query" => {
                 track_assert!(self.connection.is_some(), ErrorKind::Invalid);
                 if !self.is_path_initialized {
-                    let mut serializer = track_try!(UrlPathSerializer::new(
+                    let mut serializer = track!(UrlPathSerializer::new(
                         &self.entry_point,
                         &mut self.temp_url,
-                    ));
-                    track_try!(value.serialize(&mut serializer));
+                    ))?;
+                    track!(value.serialize(&mut serializer))?;
                     self.is_path_initialized = true;
                 }
                 {
                     let mut serializer = UrlQuerySerializer::new(self.temp_url.query_pairs_mut());
-                    track_try!(value.serialize(&mut serializer));
+                    track!(value.serialize(&mut serializer))?;
                 }
                 let relative_url = &self.temp_url[url::Position::BeforePath..];
                 let connection = self.connection.take().unwrap();
@@ -221,11 +221,11 @@ impl<'a> ser::SerializeStruct for &'a mut RpcRequestSerializer {
             "header" => {
                 let mut request = self.request.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
-                track_try!(value.serialize(&mut serializer));
+                track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
             "body" => {
-                let body = track_try!(value.serialize(HttpBodySerializer));
+                let body = track!(value.serialize(HttpBodySerializer))?;
                 self.body = body;
                 Ok(())
             }
@@ -247,11 +247,11 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcRequestSerializer {
             "header" => {
                 let mut request = self.request.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
-                track_try!(value.serialize(&mut serializer));
+                track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
             "body" => {
-                let body = track_try!(value.serialize(HttpBodySerializer));
+                let body = track!(value.serialize(HttpBodySerializer))?;
                 self.body = body;
                 Ok(())
             }

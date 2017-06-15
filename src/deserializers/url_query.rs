@@ -2,7 +2,7 @@ use std;
 use std::borrow::Cow;
 use std::iter::Peekable;
 use serde::de::{self, Visitor};
-use trackable::error::IntoTrackableError;
+use trackable::error::ErrorKindExt;
 use url;
 
 use {Result, Error, ErrorKind};
@@ -40,7 +40,7 @@ impl<'de> UrlQueryDeserializer<'de> {
     fn next_str(&mut self) -> Result<Cow<'de, str>> {
         match self.phase.take() {
             Phase::Key => {
-                let (k, v) = track_try!(self.query.next().ok_or(ErrorKind::Invalid));
+                let (k, v) = track!(self.query.next().ok_or_else(|| ErrorKind::Invalid.error()))?;
                 self.phase = Phase::Value(v);
                 Ok(k)
             }
@@ -61,8 +61,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_bool(v))
     }
 
@@ -70,8 +70,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_i8(v))
     }
 
@@ -79,8 +79,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_i16(v))
     }
 
@@ -88,8 +88,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_i32(v))
     }
 
@@ -97,8 +97,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_i64(v))
     }
 
@@ -106,8 +106,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_u8(v))
     }
 
@@ -115,8 +115,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_u16(v))
     }
 
@@ -124,8 +124,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_u32(v))
     }
 
@@ -133,8 +133,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_u64(v))
     }
 
@@ -142,8 +142,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_f32(v))
     }
 
@@ -151,8 +151,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
-        let v = track_try!(parse_cow_str(v));
+        let v = track!(self.next_str())?;
+        let v = track!(parse_cow_str(v))?;
         track!(visitor.visit_f64(v))
     }
 
@@ -167,7 +167,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
+        let v = track!(self.next_str())?;
         match v {
             Cow::Borrowed(s) => track!(visitor.visit_borrowed_str(s)),
             Cow::Owned(s) => track!(visitor.visit_string(s)),
@@ -185,7 +185,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
+        let v = track!(self.next_str())?;
         match v {
             Cow::Borrowed(s) => track!(visitor.visit_borrowed_bytes(s.as_bytes())),
             Cow::Owned(s) => track!(visitor.visit_byte_buf(s.into_bytes())),
@@ -210,7 +210,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track_try!(self.next_str());
+        let v = track!(self.next_str())?;
         track_assert!(v.is_empty(), ErrorKind::Invalid);
         track!(visitor.visit_unit())
     }
@@ -311,7 +311,7 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut UrlQueryDeserializer<'de> {
         if self.is_end_of_query() {
             Ok(None)
         } else {
-            let v = track_try!(seed.deserialize(&mut **self));
+            let v = track!(seed.deserialize(&mut **self))?;
             Ok(Some(v))
         }
     }
@@ -319,16 +319,16 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut UrlQueryDeserializer<'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        let v = track_try!(seed.deserialize(&mut **self));
+        let v = track!(seed.deserialize(&mut **self))?;
         Ok(v)
     }
 }
 
 fn parse_cow_str<T: std::str::FromStr>(s: Cow<str>) -> Result<T>
 where
-    ErrorKind: IntoTrackableError<T::Err>,
+    Error: From<T::Err>,
 {
-    let v = track_try!(s.parse(), "s={:?}", s);
+    let v = track!(s.parse().map_err(Error::from), "s={:?}", s)?;
     Ok(v)
 }
 

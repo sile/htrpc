@@ -5,6 +5,7 @@ use miasht::status::RawStatus;
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use serdeconv;
+use trackable::error::ErrorKindExt;
 
 use {Result, Error, ErrorKind};
 use serializers::{HttpBodySerializer, HttpHeaderSerializer};
@@ -27,7 +28,7 @@ impl RpcResponseSerializer {
         T: Serialize,
     {
         let mut serializer = RpcResponseSerializer::new(connection);
-        track_try!(rpc_response.serialize(&mut serializer));
+        track!(rpc_response.serialize(&mut serializer))?;
         track!(serializer.finish())
     }
 
@@ -124,7 +125,7 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         variant: &'static str,
     ) -> Result<Self::Ok> {
         track_assert!(self.connection.is_some(), ErrorKind::Invalid);
-        let status = track_try!(status_from_str(variant));
+        let status = track!(status_from_str(variant))?;
         let response = self.connection.take().unwrap().build_response(status);
         self.response = Some(response);
         Ok(())
@@ -183,7 +184,7 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
         track_assert!(self.connection.is_some(), ErrorKind::Invalid);
-        let status = track_try!(status_from_str(variant));
+        let status = track!(status_from_str(variant))?;
         let response = self.connection.take().unwrap().build_response(status);
         self.response = Some(response);
         Ok(self)
@@ -199,15 +200,15 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
         match key {
             "status" => {
                 track_assert!(self.connection.is_some(), ErrorKind::Invalid);
-                let status = track_try!(serdeconv::to_json_string(value));
-                let status = track_try!(status.parse());
-                let status = track_try!(
-                    RawStatus::new(status, "").normalize().ok_or(
-                        ErrorKind::Invalid,
-                    ),
+                let status = track!(serdeconv::to_json_string(value))?;
+                let status = track!(status.parse().map_err(Error::from))?;
+                let status = track!(
+                    RawStatus::new(status, "").normalize().ok_or_else(|| {
+                        ErrorKind::Invalid.error()
+                    }),
                     "Unknown HTTP status: {}",
                     status
-                );
+                )?;
                 let response = self.connection.take().unwrap().build_response(status);
                 self.response = Some(response);
                 Ok(())
@@ -216,12 +217,12 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
                 track_assert!(self.connection.is_none(), ErrorKind::Invalid);
                 let mut response = self.response.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(response.headers_mut());
-                track_try!(value.serialize(&mut serializer));
+                track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
             "body" => {
                 track_assert!(self.connection.is_none(), ErrorKind::Invalid);
-                let body = track_try!(value.serialize(HttpBodySerializer));
+                let body = track!(value.serialize(HttpBodySerializer))?;
                 self.body = body;
                 Ok(())
             }
@@ -243,11 +244,11 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {
             "header" => {
                 let mut response = self.response.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(response.headers_mut());
-                track_try!(value.serialize(&mut serializer));
+                track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
             "body" => {
-                let body = track_try!(value.serialize(HttpBodySerializer));
+                let body = track!(value.serialize(HttpBodySerializer))?;
                 self.body = body;
                 Ok(())
             }

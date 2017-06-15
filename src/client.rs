@@ -60,15 +60,15 @@ where
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
-            let next = match track_try!(self.phase.poll()) {
+            let next = match track!(self.phase.poll().map_err(Error::from))? {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(connection)) => {
                     // Writes HTTP request.
                     let entry_point = P::entry_point();
                     let rpc_request = self.request.take().expect("Never fail");
                     let mut ser = RpcRequestSerializer::new(connection, P::method(), entry_point);
-                    track_try!(rpc_request.serialize(&mut ser));
-                    let (request, body) = track_try!(ser.finish());
+                    track!(rpc_request.serialize(&mut ser))?;
+                    let (request, body) = track!(ser.finish())?;
                     Phase::B(request.write_all_bytes(body).and_then(|r| r).boxed())
                 }
                 Async::Ready(Phase::B(connection)) => {
@@ -78,14 +78,14 @@ where
                 Async::Ready(Phase::C(response)) => {
                     // Reads HTTP response body.
                     let future = futures::done(response.into_body_reader())
-                        .and_then(|res| track_err!(res.read_all_bytes()))
+                        .and_then(|res| res.read_all_bytes().map_err(|e| track!(e)))
                         .map(|(res, body)| (res.into_inner(), body));
                     Phase::D(future.boxed())
                 }
                 Async::Ready(Phase::D((response, body))) => {
                     // Converts from HTTP response to RPC response.
                     let mut deserializer = RpcResponseDeserializer::new(&response, body);
-                    let rpc_response = track_try!(P::Response::deserialize(&mut deserializer));
+                    let rpc_response = track!(P::Response::deserialize(&mut deserializer))?;
                     return Ok(Async::Ready(rpc_response));
                 }
                 _ => unreachable!(),
