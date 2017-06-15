@@ -23,12 +23,12 @@ impl<'de> UrlPathDeserializer<'de> {
     pub fn new(entry_point: EntryPoint, url: &'de Url) -> Result<Self> {
         let segments = track_try!(url.path_segments().ok_or(ErrorKind::Invalid));
         Ok(UrlPathDeserializer {
-               in_seq: false,
-               segments: segments.peekable(),
-               entry_point,
-               index: 0,
-               free_vars: entry_point.var_count(),
-           })
+            in_seq: false,
+            segments: segments.peekable(),
+            entry_point,
+            index: 0,
+            free_vars: entry_point.var_count(),
+        })
     }
     fn is_end_of_segment(&mut self) -> bool {
         self.segments.peek().is_none()
@@ -42,8 +42,10 @@ impl<'de> UrlPathDeserializer<'de> {
         Ok(())
     }
     fn next_value(&mut self) -> Result<&'de str> {
-        track_assert!(self.index < self.entry_point.segments().len(),
-                      ErrorKind::Invalid);
+        track_assert!(
+            self.index < self.entry_point.segments().len(),
+            ErrorKind::Invalid
+        );
         track_assert!(!self.is_end_of_segment(), ErrorKind::Invalid);
         let i = self.index;
         self.index += 1;
@@ -61,13 +63,15 @@ impl<'de> UrlPathDeserializer<'de> {
 impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     type Error = Error;
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Other, "unreachable");
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -75,7 +79,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -83,7 +88,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -91,7 +97,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -99,7 +106,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -107,7 +115,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -115,7 +124,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -123,7 +133,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -131,7 +142,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -139,7 +151,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -147,7 +160,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(parse_escaped_str(v));
@@ -155,13 +169,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid, "Unsupported");
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_value());
         let v = track_try!(url::percent_encoding::percent_decode(v.as_bytes()).decode_utf8());
@@ -172,49 +188,57 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_str(visitor))
     }
 
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_bytes(visitor))
     }
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_unit(visitor))
     }
 
     fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_assert!(!self.in_seq, ErrorKind::Invalid);
         self.in_seq = true;
@@ -222,55 +246,65 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_seq(visitor))
     }
 
-    fn deserialize_tuple_struct<V>(self,
-                                   _name: &'static str,
-                                   _len: usize,
-                                   visitor: V)
-                                   -> Result<V::Value>
-        where V: Visitor<'de>
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_seq(visitor))
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
-    fn deserialize_struct<V>(self,
-                             _name: &'static str,
-                             _fields: &'static [&'static str],
-                             visitor: V)
-                             -> Result<V::Value>
-        where V: Visitor<'de>
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_map(visitor))
     }
 
-    fn deserialize_enum<V>(self,
-                           _name: &'static str,
-                           _variants: &'static [&'static str],
-                           _visitor: V)
-                           -> Result<V::Value>
-        where V: Visitor<'de>
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_str(visitor))
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
@@ -278,7 +312,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
 impl<'de, 'a> de::SeqAccess<'de> for &'a mut UrlPathDeserializer<'de> {
     type Error = Error;
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
-        where T: de::DeserializeSeed<'de>
+    where
+        T: de::DeserializeSeed<'de>,
     {
         if self.free_vars == 0 {
             track_try!(self.finish());
@@ -291,7 +326,8 @@ impl<'de, 'a> de::SeqAccess<'de> for &'a mut UrlPathDeserializer<'de> {
 }
 
 fn parse_escaped_str<T: std::str::FromStr>(s: &str) -> Result<T>
-    where ErrorKind: IntoTrackableError<T::Err>
+where
+    ErrorKind: IntoTrackableError<T::Err>,
 {
     let s = track_try!(url::percent_encoding::percent_decode(s.as_bytes()).decode_utf8());
     let v = track_try!(s.parse(), "s={:?}", s);

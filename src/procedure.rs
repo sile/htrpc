@@ -20,7 +20,8 @@ pub trait Procedure {
 
 /// This trait allows to handle RPC requests issued by clients.
 pub trait HandleRpc<P>: Clone + Send + 'static
-    where P: Procedure
+where
+    P: Procedure,
 {
     /// The `Future` which represents the result of an invocation of the `handle_rpc` method.
     type Future: Future<Item = <P as Procedure>::Response, Error = NeverFail> + Send + 'static;

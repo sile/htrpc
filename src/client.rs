@@ -27,7 +27,8 @@ impl RpcClient {
     /// Issues an RPC request and returns the `Future`
     /// which will result in the corresponding response.
     pub fn call<P>(&mut self, request: P::Request) -> Call<P>
-        where P: Procedure
+    where
+        P: Procedure,
     {
         let client = miasht::Client::new();
         let future = Call {
@@ -40,16 +41,20 @@ impl RpcClient {
 
 /// A `Future` which represents an RPC invocation.
 pub struct Call<P>
-    where P: Procedure
+where
+    P: Procedure,
 {
     request: Option<P::Request>,
-    phase: Phase<miasht::client::Connect,
-                 BoxFuture<Connection<TcpStream>, miasht::Error>,
-                 BoxFuture<Response<TcpStream>, miasht::Error>,
-                 BoxFuture<(Response<TcpStream>, Vec<u8>), miasht::Error>>,
+    phase: Phase<
+        miasht::client::Connect,
+        BoxFuture<Connection<TcpStream>, miasht::Error>,
+        BoxFuture<Response<TcpStream>, miasht::Error>,
+        BoxFuture<(Response<TcpStream>, Vec<u8>), miasht::Error>,
+    >,
 }
 impl<P> Future for Call<P>
-    where P: Procedure
+where
+    P: Procedure,
 {
     type Item = P::Response;
     type Error = Error;

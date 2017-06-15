@@ -65,7 +65,8 @@ impl ser::Serializer for HttpBodySerializer {
         Ok(Vec::new())
     }
     fn serialize_some<T>(self, value: &T) -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
@@ -75,25 +76,29 @@ impl ser::Serializer for HttpBodySerializer {
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
         Ok(Vec::new())
     }
-    fn serialize_unit_variant(self,
-                              _name: &'static str,
-                              _variant_index: u32,
-                              variant: &'static str)
-                              -> Result<Self::Ok> {
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+    ) -> Result<Self::Ok> {
         track!(self.serialize_str(variant))
     }
     fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
-    fn serialize_newtype_variant<T>(self,
-                                    _name: &'static str,
-                                    _variant_index: u32,
-                                    _variant: &'static str,
-                                    value: &T)
-                                    -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
@@ -103,18 +108,20 @@ impl ser::Serializer for HttpBodySerializer {
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_tuple_struct(self,
-                              _name: &'static str,
-                              _len: usize)
-                              -> Result<Self::SerializeTupleStruct> {
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_tuple_variant(self,
-                               _name: &'static str,
-                               _variant_index: u32,
-                               _variant: &'static str,
-                               _len: usize)
-                               -> Result<Self::SerializeTupleVariant> {
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -123,12 +130,13 @@ impl ser::Serializer for HttpBodySerializer {
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_struct_variant(self,
-                                _name: &'static str,
-                                _variant_index: u32,
-                                _variant: &'static str,
-                                _len: usize)
-                                -> Result<Self::SerializeStructVariant> {
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
         track_panic!(ErrorKind::Invalid);
     }
 }

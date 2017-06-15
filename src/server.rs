@@ -44,8 +44,9 @@ impl RpcServerBuilder {
 
     /// Registers an RPC handler.
     pub fn register<P, H>(&mut self, handler: H) -> Result<()>
-        where P: Procedure,
-              H: HandleRpc<P>
+    where
+        P: Procedure,
+        H: HandleRpc<P>,
     {
         let handle_http_request = move |url, http_request, body| {
             let handler = handler.clone();
@@ -59,9 +60,10 @@ impl RpcServerBuilder {
                     Err(e) => {
                         let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
                             .into_response();
-                        let result = track!(RpcResponseSerializer::serialize(rpc_response,
-                                                                             http_request
-                                                                                 .finish()));
+                        let result = track!(RpcResponseSerializer::serialize(
+                            rpc_response,
+                            http_request.finish(),
+                        ));
                         return futures::done(result).boxed();
                     }
                     Ok(r) => r,
@@ -71,19 +73,25 @@ impl RpcServerBuilder {
                 .handle_rpc(rpc_request)
                 .map_err(|_| unreachable!())
                 .and_then(move |rpc_response| {
-                              track!(RpcResponseSerializer::serialize(rpc_response,
-                                                                      http_request.finish()))
-                          })
+                    track!(RpcResponseSerializer::serialize(
+                        rpc_response,
+                        http_request.finish(),
+                    ))
+                })
                 .boxed()
         };
-        track_try!(self.router
-                       .register_handler(P::method(), P::entry_point(), handle_http_request));
+        track_try!(self.router.register_handler(
+            P::method(),
+            P::entry_point(),
+            handle_http_request,
+        ));
         Ok(())
     }
 
     /// Starts the `Future` which represents the RPC server.
     pub fn start<S>(self, spawner: S) -> RpcServer
-        where S: Spawn + Send + 'static
+    where
+        S: Spawn + Send + 'static,
     {
         RpcServer {
             spawner: spawner.boxed(),
@@ -110,9 +118,11 @@ impl Future for RpcServer {
             let next = match track_try!(self.phase.poll()) {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(listener)) => {
-                    info!(self.logger,
-                          "RPC server started: {:?}",
-                          listener.local_addr());
+                    info!(
+                        self.logger,
+                        "RPC server started: {:?}",
+                        listener.local_addr()
+                    );
                     Phase::B(listener.incoming().into_future())
                 }
                 Async::Ready(Phase::B((client, incoming))) => {
@@ -120,9 +130,9 @@ impl Future for RpcServer {
                     debug!(self.logger, "New client is connected: {}", addr);
 
                     let connected = connected.then(|result| {
-                                                       let stream = track_try!(result);
-                                                       Ok(Connection::new(stream, 1024, 8096, 32))
-                                                   });
+                        let stream = track_try!(result);
+                        Ok(Connection::new(stream, 1024, 8096, 32))
+                    });
                     let future = HandleHttpRequest {
                         logger: self.logger.clone(),
                         router: self.router.clone(),
@@ -141,9 +151,11 @@ impl Future for RpcServer {
 struct HandleHttpRequest {
     logger: Logger,
     router: Router,
-    phase: Phase<BoxFuture<Connection<TcpStream>, miasht::Error>,
-                 BoxFuture<Option<(Request<TcpStream>, Vec<u8>)>, miasht::Error>,
-                 BoxFuture<(Response<TcpStream>, Vec<u8>), Error>>,
+    phase: Phase<
+        BoxFuture<Connection<TcpStream>, miasht::Error>,
+        BoxFuture<Option<(Request<TcpStream>, Vec<u8>)>, miasht::Error>,
+        BoxFuture<(Response<TcpStream>, Vec<u8>), Error>,
+    >,
 }
 impl HandleHttpRequest {
     fn poll_impl(&mut self) -> Poll<(), Error> {
@@ -159,7 +171,8 @@ impl HandleHttpRequest {
                         .or_else(|e| {
                             if let Some(e) = e.concrete_cause::<io::Error>() {
                                 if e.kind() == io::ErrorKind::UnexpectedEof ||
-                                   e.kind() == io::ErrorKind::ConnectionReset {
+                                    e.kind() == io::ErrorKind::ConnectionReset
+                                {
                                     // The connection is reset by the peer.
                                     return Ok(None);
                                 }
@@ -172,27 +185,31 @@ impl HandleHttpRequest {
                     return Ok(Async::Ready(()));
                 }
                 Async::Ready(Phase::B(Some((request, body)))) => {
-                    debug!(self.logger,
-                           "RPC request: method={}, path={:?}, body_bytes={}",
-                           request.method(),
-                           request.path(),
-                           body.len());
+                    debug!(
+                        self.logger,
+                        "RPC request: method={}, path={:?}, body_bytes={}",
+                        request.method(),
+                        request.path(),
+                        body.len()
+                    );
                     let future = match track!(misc::parse_relative_url(request.path())) {
                         Err(e) => {
                             let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
                                 .into_response();
-                            let result =
-                                track!(RpcResponseSerializer::serialize(rpc_response,
-                                                                        request.finish()));
+                            let result = track!(RpcResponseSerializer::serialize(
+                                rpc_response,
+                                request.finish(),
+                            ));
                             futures::done(result).boxed()
                         }
                         Ok(url) => {
                             match self.router.route(&url, &request) {
                                 Err(status) => {
                                     let rpc_response = Problem::about_blank(status).into_response();
-                                    let result =
-                                        track!(RpcResponseSerializer::serialize(rpc_response,
-                                                                                request.finish()));
+                                    let result = track!(RpcResponseSerializer::serialize(
+                                        rpc_response,
+                                        request.finish(),
+                                    ));
                                     futures::done(result).boxed()
                                 }
                                 Ok(handler) => handler(url, request, body),
@@ -215,10 +232,9 @@ impl Future for HandleHttpRequest {
     type Item = ();
     type Error = ();
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.poll_impl()
-            .map_err(|e| {
-                         warn!(self.logger, "Failed to handle RPC request: {}", e);
-                         ()
-                     })
+        self.poll_impl().map_err(|e| {
+            warn!(self.logger, "Failed to handle RPC request: {}", e);
+            ()
+        })
     }
 }

@@ -10,8 +10,11 @@ use procedure::EntryPoint;
 use types::{HttpMethod, HttpStatus};
 
 type HandleHttpRequestResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
-type HandleHttpRequest =
-    Box<Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult + Send + 'static>;
+type HandleHttpRequest = Box<
+    Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult
+        + Send
+        + 'static,
+>;
 
 #[derive(Clone)]
 pub struct Router {
@@ -19,10 +22,11 @@ pub struct Router {
 }
 unsafe impl Send for Router {}
 impl Router {
-    pub fn route(&self,
-                 url: &Url,
-                 request: &Request<TcpStream>)
-                 -> ::std::result::Result<&HandleHttpRequest, HttpStatus> {
+    pub fn route(
+        &self,
+        url: &Url,
+        request: &Request<TcpStream>,
+    ) -> ::std::result::Result<&HandleHttpRequest, HttpStatus> {
         let mut trie = self.trie.root();
         for segment in url.path_segments().expect("Never fails") {
             if let Some(child) = trie.get_child(segment) {
@@ -31,8 +35,9 @@ impl Router {
                 return Err(HttpStatus::NotFound);
             }
         }
-        trie.get_value(request.method())
-            .ok_or(HttpStatus::MethodNotAllowed)
+        trie.get_value(request.method()).ok_or(
+            HttpStatus::MethodNotAllowed,
+        )
     }
 }
 
@@ -46,12 +51,14 @@ impl RouterBuilder {
     pub fn finish(self) -> Router {
         Router { trie: Arc::new(self.trie) }
     }
-    pub fn register_handler<H: Send + 'static>(&mut self,
-                                               method: HttpMethod,
-                                               entry_point: EntryPoint,
-                                               handler: H)
-                                               -> Result<()>
-        where H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult
+    pub fn register_handler<H: Send + 'static>(
+        &mut self,
+        method: HttpMethod,
+        entry_point: EntryPoint,
+        handler: H,
+    ) -> Result<()>
+    where
+        H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult,
     {
         track_try!(self.trie.insert(method, &entry_point, Box::new(handler)));
         Ok(())
@@ -65,11 +72,12 @@ impl Trie {
     pub fn new() -> Self {
         Trie { root: TrieNode::new() }
     }
-    pub fn insert(&mut self,
-                  method: HttpMethod,
-                  entry_point: &EntryPoint,
-                  handler: HandleHttpRequest)
-                  -> Result<()> {
+    pub fn insert(
+        &mut self,
+        method: HttpMethod,
+        entry_point: &EntryPoint,
+        handler: HandleHttpRequest,
+    ) -> Result<()> {
         let mut node = &mut self.root;
         for segment in entry_point.segments() {
             use types::PathSegment::*;
@@ -80,11 +88,13 @@ impl Trie {
             let prev = node;
             node = prev.children.entry(key).or_insert_with(|| TrieNode::new());
         }
-        track_assert!(!node.leafs.contains_key(&method),
-                      ErrorKind::Invalid,
-                      "Conflicted: entry_point={:?}, method={:?}",
-                      entry_point,
-                      method);
+        track_assert!(
+            !node.leafs.contains_key(&method),
+            ErrorKind::Invalid,
+            "Conflicted: entry_point={:?}, method={:?}",
+            entry_point,
+            method
+        );
         node.leafs.insert(method, handler);
         Ok(())
     }
@@ -106,9 +116,9 @@ impl TrieNode {
     }
     pub fn get_child<'a>(&'a self, segment: &str) -> Option<&'a Self> {
         let segment: &'static str = unsafe { &*(segment as *const _) as _ };
-        self.children
-            .get(&Some(segment))
-            .or_else(|| self.children.get(&None))
+        self.children.get(&Some(segment)).or_else(
+            || self.children.get(&None),
+        )
     }
     pub fn get_value(&self, method: HttpMethod) -> Option<&HandleHttpRequest> {
         self.leafs.get(&method)

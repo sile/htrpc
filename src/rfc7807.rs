@@ -117,8 +117,9 @@ impl Problem {
 
     /// Makes a new `TrackableProblem` problem.
     pub fn trackable<E>(status: HttpStatus, error: E) -> Self
-        where E: error::Error + Trackable,
-              E::Event: fmt::Display
+    where
+        E: error::Error + Trackable,
+        E::Event: fmt::Display,
     {
         Problem::Trackable(TrackableProblem::new(status, error))
     }
@@ -203,8 +204,9 @@ pub struct TrackableProblem {
 impl TrackableProblem {
     /// Makes a new `TrackableProblem` instance.
     pub fn new<E>(status: HttpStatus, error: E) -> Self
-        where E: error::Error + Trackable,
-              E::Event: fmt::Display
+    where
+        E: error::Error + Trackable,
+        E::Event: fmt::Display,
     {
         TrackableProblem {
             title: error.description().to_string(),
@@ -212,9 +214,9 @@ impl TrackableProblem {
             detail: error.cause().map(|c| c.to_string()),
             instance: None,
             tracking_number: error.tracking_number(),
-            history: error
-                .history()
-                .map(|h| h.events().iter().map(|e| e.to_string()).collect()),
+            history: error.history().map(|h| {
+                h.events().iter().map(|e| e.to_string()).collect()
+            }),
         }
     }
 }
@@ -229,18 +231,21 @@ mod tracking_number {
     use ErrorKind;
 
     pub fn serialize<S>(value: &Option<TrackingNumber>, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         value.map(|v| v.to_string()).serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<TrackingNumber>, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         let hex: Option<String> = Option::deserialize(deserializer)?;
         if let Some(hex) = hex {
-            let value = track_err!(u64::from_str_radix(&hex, 16))
-                .map_err(|e: TrackableError<ErrorKind>| de::Error::custom(e))?;
+            let value = track_err!(u64::from_str_radix(&hex, 16)).map_err(
+                |e: TrackableError<ErrorKind>| de::Error::custom(e),
+            )?;
             Ok(Some(TrackingNumber(value)))
         } else {
             Ok(None)

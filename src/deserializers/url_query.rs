@@ -51,13 +51,15 @@ impl<'de> UrlQueryDeserializer<'de> {
 impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     type Error = Error;
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Other, "unreachable");
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -65,7 +67,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -73,7 +76,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -81,7 +85,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -89,7 +94,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -97,7 +103,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -105,7 +112,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -113,7 +121,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -121,7 +130,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -129,7 +139,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -137,7 +148,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         let v = track_try!(parse_cow_str(v));
@@ -145,13 +157,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid, "Unsupported");
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         match v {
@@ -161,13 +175,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_str(visitor))
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         match v {
@@ -177,19 +193,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_bytes(visitor))
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(visitor.visit_some(self))
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         let v = track_try!(self.next_str());
         track_assert!(v.is_empty(), ErrorKind::Invalid);
@@ -197,75 +216,88 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
     }
 
     fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_unit(visitor))
     }
 
     fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
-    fn deserialize_tuple_struct<V>(self,
-                                   _name: &'static str,
-                                   _len: usize,
-                                   _visitor: V)
-                                   -> Result<V::Value>
-        where V: Visitor<'de>
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        _visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track_assert!(!self.in_map, ErrorKind::Invalid);
         self.in_map = true;
         track!(visitor.visit_map(self))
     }
 
-    fn deserialize_struct<V>(self,
-                             _name: &'static str,
-                             _fields: &'static [&'static str],
-                             visitor: V)
-                             -> Result<V::Value>
-        where V: Visitor<'de>
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_map(visitor))
     }
 
-    fn deserialize_enum<V>(self,
-                           _name: &'static str,
-                           _variants: &'static [&'static str],
-                           _visitor: V)
-                           -> Result<V::Value>
-        where V: Visitor<'de>
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
     {
         track_panic!(ErrorKind::Invalid);
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(self.deserialize_str(visitor))
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         track!(visitor.visit_unit()) // NOTE: dummy visiting
     }
@@ -273,7 +305,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlQueryDeserializer<'de> {
 impl<'de, 'a> de::MapAccess<'de> for &'a mut UrlQueryDeserializer<'de> {
     type Error = Error;
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
-        where K: de::DeserializeSeed<'de>
+    where
+        K: de::DeserializeSeed<'de>,
     {
         if self.is_end_of_query() {
             Ok(None)
@@ -283,7 +316,8 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut UrlQueryDeserializer<'de> {
         }
     }
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
-        where V: de::DeserializeSeed<'de>
+    where
+        V: de::DeserializeSeed<'de>,
     {
         let v = track_try!(seed.deserialize(&mut **self));
         Ok(v)
@@ -291,7 +325,8 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut UrlQueryDeserializer<'de> {
 }
 
 fn parse_cow_str<T: std::str::FromStr>(s: Cow<str>) -> Result<T>
-    where ErrorKind: IntoTrackableError<T::Err>
+where
+    ErrorKind: IntoTrackableError<T::Err>,
 {
     let v = track_try!(s.parse(), "s={:?}", s);
     Ok(v)

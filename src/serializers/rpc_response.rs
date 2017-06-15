@@ -19,10 +19,12 @@ pub struct RpcResponseSerializer {
 }
 impl RpcResponseSerializer {
     /// Serializes the RPC response.
-    pub fn serialize<T>(rpc_response: T,
-                        connection: Connection<TcpStream>)
-                        -> Result<(Response<TcpStream>, Vec<u8>)>
-        where T: Serialize
+    pub fn serialize<T>(
+        rpc_response: T,
+        connection: Connection<TcpStream>,
+    ) -> Result<(Response<TcpStream>, Vec<u8>)>
+    where
+        T: Serialize,
     {
         let mut serializer = RpcResponseSerializer::new(connection);
         track_try!(rpc_response.serialize(&mut serializer));
@@ -104,7 +106,8 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_some<T>(self, _value: &T) -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track_panic!(ErrorKind::Invalid);
     }
@@ -114,11 +117,12 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_unit_variant(mut self,
-                              _name: &'static str,
-                              _variant_index: u32,
-                              variant: &'static str)
-                              -> Result<Self::Ok> {
+    fn serialize_unit_variant(
+        mut self,
+        _name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+    ) -> Result<Self::Ok> {
         track_assert!(self.connection.is_some(), ErrorKind::Invalid);
         let status = track_try!(status_from_str(variant));
         let response = self.connection.take().unwrap().build_response(status);
@@ -126,17 +130,20 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         Ok(())
     }
     fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
-    fn serialize_newtype_variant<T>(self,
-                                    _name: &'static str,
-                                    _variant_index: u32,
-                                    _variant: &'static str,
-                                    value: &T)
-                                    -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
@@ -146,18 +153,20 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_tuple_struct(self,
-                              _name: &'static str,
-                              _len: usize)
-                              -> Result<Self::SerializeTupleStruct> {
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_tuple_variant(self,
-                               _name: &'static str,
-                               _variant_index: u32,
-                               _variant: &'static str,
-                               _len: usize)
-                               -> Result<Self::SerializeTupleVariant> {
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -166,12 +175,13 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(self)
     }
-    fn serialize_struct_variant(self,
-                                _name: &'static str,
-                                _variant_index: u32,
-                                variant: &'static str,
-                                _len: usize)
-                                -> Result<Self::SerializeStructVariant> {
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
         track_assert!(self.connection.is_some(), ErrorKind::Invalid);
         let status = track_try!(status_from_str(variant));
         let response = self.connection.take().unwrap().build_response(status);
@@ -183,18 +193,21 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         match key {
             "status" => {
                 track_assert!(self.connection.is_some(), ErrorKind::Invalid);
                 let status = track_try!(serdeconv::to_json_string(value));
                 let status = track_try!(status.parse());
-                let status = track_try!(RawStatus::new(status, "")
-                                            .normalize()
-                                            .ok_or(ErrorKind::Invalid),
-                                        "Unknown HTTP status: {}",
-                                        status);
+                let status = track_try!(
+                    RawStatus::new(status, "").normalize().ok_or(
+                        ErrorKind::Invalid,
+                    ),
+                    "Unknown HTTP status: {}",
+                    status
+                );
                 let response = self.connection.take().unwrap().build_response(status);
                 self.response = Some(response);
                 Ok(())
@@ -223,7 +236,8 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         match key {
             "header" => {
@@ -247,63 +261,63 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {
 
 fn status_from_str(s: &str) -> Result<HttpStatus> {
     Ok(match s {
-           "Continue" => HttpStatus::Continue,
-           "SwitchingProtocols" => HttpStatus::SwitchingProtocols,
-           "Processing" => HttpStatus::Processing,
-           "Ok" => HttpStatus::Ok,
-           "Created" => HttpStatus::Created,
-           "Accepted" => HttpStatus::Accepted,
-           "NonAuthoritativeInformation" => HttpStatus::NonAuthoritativeInformation,
-           "NoContent" => HttpStatus::NoContent,
-           "ResetContent" => HttpStatus::ResetContent,
-           "PartialContent" => HttpStatus::PartialContent,
-           "MultiStatus" => HttpStatus::MultiStatus,
-           "AlreadyReported" => HttpStatus::AlreadyReported,
-           "ImUsed" => HttpStatus::ImUsed,
-           "MultipleChoices" => HttpStatus::MultipleChoices,
-           "MovedPermanently" => HttpStatus::MovedPermanently,
-           "Found" => HttpStatus::Found,
-           "SeeOther" => HttpStatus::SeeOther,
-           "NotModified" => HttpStatus::NotModified,
-           "UseProxy" => HttpStatus::UseProxy,
-           "TemporaryRedirect" => HttpStatus::TemporaryRedirect,
-           "PermanentRedirect" => HttpStatus::PermanentRedirect,
-           "BadRequest" => HttpStatus::BadRequest,
-           "Unauthorized" => HttpStatus::Unauthorized,
-           "PaymentRequired" => HttpStatus::PaymentRequired,
-           "Forbidden" => HttpStatus::Forbidden,
-           "NotFound" => HttpStatus::NotFound,
-           "MethodNotAllowed" => HttpStatus::MethodNotAllowed,
-           "NotAcceptable" => HttpStatus::NotAcceptable,
-           "ProxyAuthenticationRequired" => HttpStatus::ProxyAuthenticationRequired,
-           "RequestTimeout" => HttpStatus::RequestTimeout,
-           "Conflict" => HttpStatus::Conflict,
-           "Gone" => HttpStatus::Gone,
-           "LengthRequired" => HttpStatus::LengthRequired,
-           "PreconditionFailed" => HttpStatus::PreconditionFailed,
-           "PayloadTooLarge" => HttpStatus::PayloadTooLarge,
-           "UriTooLong" => HttpStatus::UriTooLong,
-           "UnsupportedMediaType" => HttpStatus::UnsupportedMediaType,
-           "RangeNotSatisfiable" => HttpStatus::RangeNotSatisfiable,
-           "ExceptionFailed" => HttpStatus::ExceptionFailed,
-           "ImATeapot" => HttpStatus::ImATeapot,
-           "MisdirectedRequest" => HttpStatus::MisdirectedRequest,
-           "UnprocessableEntity" => HttpStatus::UnprocessableEntity,
-           "Locked" => HttpStatus::Locked,
-           "FailedDependency" => HttpStatus::FailedDependency,
-           "UpgradeRequired" => HttpStatus::UpgradeRequired,
-           "UnavailableForLegalReasons" => HttpStatus::UnavailableForLegalReasons,
-           "InternalServerError" => HttpStatus::InternalServerError,
-           "NotImplemented" => HttpStatus::NotImplemented,
-           "BadGateway" => HttpStatus::BadGateway,
-           "ServiceUnavailable" => HttpStatus::ServiceUnavailable,
-           "GatewayTimeout" => HttpStatus::GatewayTimeout,
-           "HttpVersionNotSupported" => HttpStatus::HttpVersionNotSupported,
-           "VariantAlsoNegotiates" => HttpStatus::VariantAlsoNegotiates,
-           "InsufficientStorage" => HttpStatus::InsufficientStorage,
-           "LoopDetected" => HttpStatus::LoopDetected,
-           "BandwidthLimitExceeded" => HttpStatus::BandwidthLimitExceeded,
-           "NotExtended" => HttpStatus::NotExtended,
-           _ => track_panic!(ErrorKind::Invalid, "Unknown HTTP status: {:?}", s),
-       })
+        "Continue" => HttpStatus::Continue,
+        "SwitchingProtocols" => HttpStatus::SwitchingProtocols,
+        "Processing" => HttpStatus::Processing,
+        "Ok" => HttpStatus::Ok,
+        "Created" => HttpStatus::Created,
+        "Accepted" => HttpStatus::Accepted,
+        "NonAuthoritativeInformation" => HttpStatus::NonAuthoritativeInformation,
+        "NoContent" => HttpStatus::NoContent,
+        "ResetContent" => HttpStatus::ResetContent,
+        "PartialContent" => HttpStatus::PartialContent,
+        "MultiStatus" => HttpStatus::MultiStatus,
+        "AlreadyReported" => HttpStatus::AlreadyReported,
+        "ImUsed" => HttpStatus::ImUsed,
+        "MultipleChoices" => HttpStatus::MultipleChoices,
+        "MovedPermanently" => HttpStatus::MovedPermanently,
+        "Found" => HttpStatus::Found,
+        "SeeOther" => HttpStatus::SeeOther,
+        "NotModified" => HttpStatus::NotModified,
+        "UseProxy" => HttpStatus::UseProxy,
+        "TemporaryRedirect" => HttpStatus::TemporaryRedirect,
+        "PermanentRedirect" => HttpStatus::PermanentRedirect,
+        "BadRequest" => HttpStatus::BadRequest,
+        "Unauthorized" => HttpStatus::Unauthorized,
+        "PaymentRequired" => HttpStatus::PaymentRequired,
+        "Forbidden" => HttpStatus::Forbidden,
+        "NotFound" => HttpStatus::NotFound,
+        "MethodNotAllowed" => HttpStatus::MethodNotAllowed,
+        "NotAcceptable" => HttpStatus::NotAcceptable,
+        "ProxyAuthenticationRequired" => HttpStatus::ProxyAuthenticationRequired,
+        "RequestTimeout" => HttpStatus::RequestTimeout,
+        "Conflict" => HttpStatus::Conflict,
+        "Gone" => HttpStatus::Gone,
+        "LengthRequired" => HttpStatus::LengthRequired,
+        "PreconditionFailed" => HttpStatus::PreconditionFailed,
+        "PayloadTooLarge" => HttpStatus::PayloadTooLarge,
+        "UriTooLong" => HttpStatus::UriTooLong,
+        "UnsupportedMediaType" => HttpStatus::UnsupportedMediaType,
+        "RangeNotSatisfiable" => HttpStatus::RangeNotSatisfiable,
+        "ExceptionFailed" => HttpStatus::ExceptionFailed,
+        "ImATeapot" => HttpStatus::ImATeapot,
+        "MisdirectedRequest" => HttpStatus::MisdirectedRequest,
+        "UnprocessableEntity" => HttpStatus::UnprocessableEntity,
+        "Locked" => HttpStatus::Locked,
+        "FailedDependency" => HttpStatus::FailedDependency,
+        "UpgradeRequired" => HttpStatus::UpgradeRequired,
+        "UnavailableForLegalReasons" => HttpStatus::UnavailableForLegalReasons,
+        "InternalServerError" => HttpStatus::InternalServerError,
+        "NotImplemented" => HttpStatus::NotImplemented,
+        "BadGateway" => HttpStatus::BadGateway,
+        "ServiceUnavailable" => HttpStatus::ServiceUnavailable,
+        "GatewayTimeout" => HttpStatus::GatewayTimeout,
+        "HttpVersionNotSupported" => HttpStatus::HttpVersionNotSupported,
+        "VariantAlsoNegotiates" => HttpStatus::VariantAlsoNegotiates,
+        "InsufficientStorage" => HttpStatus::InsufficientStorage,
+        "LoopDetected" => HttpStatus::LoopDetected,
+        "BandwidthLimitExceeded" => HttpStatus::BandwidthLimitExceeded,
+        "NotExtended" => HttpStatus::NotExtended,
+        _ => track_panic!(ErrorKind::Invalid, "Unknown HTTP status: {:?}", s),
+    })
 }

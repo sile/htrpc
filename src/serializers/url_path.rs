@@ -17,11 +17,11 @@ impl<'a> UrlPathSerializer<'a> {
     pub fn new(entry_point: &'a EntryPoint, url: &'a mut Url) -> Result<Self> {
         let segments = track_try!(url.path_segments_mut().map_err(|_| ErrorKind::Invalid));
         Ok(UrlPathSerializer {
-               segments,
-               entry_point,
-               index: 0,
-               is_started: false,
-           })
+            segments,
+            entry_point,
+            index: 0,
+            is_started: false,
+        })
     }
 
     fn bind_next_var(&mut self, value: &str) -> Result<()> {
@@ -115,7 +115,8 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_some<T>(self, _value: &T) -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track_panic!(ErrorKind::Invalid);
     }
@@ -133,25 +134,29 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
         track_try!(self.finish());
         Ok(())
     }
-    fn serialize_unit_variant(self,
-                              _name: &'static str,
-                              _variant_index: u32,
-                              variant: &'static str)
-                              -> Result<Self::Ok> {
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+    ) -> Result<Self::Ok> {
         track!(self.serialize_str(variant))
     }
     fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
-    fn serialize_newtype_variant<T>(self,
-                                    _name: &'static str,
-                                    _variant_index: u32,
-                                    _variant: &'static str,
-                                    value: &T)
-                                    -> Result<Self::Ok>
-        where T: ?Sized + Serialize
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok>
+    where
+        T: ?Sized + Serialize,
     {
         track!(value.serialize(self))
     }
@@ -164,21 +169,23 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
         self.is_started = true;
         Ok(self)
     }
-    fn serialize_tuple_struct(self,
-                              _name: &'static str,
-                              len: usize)
-                              -> Result<Self::SerializeTupleStruct> {
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
         track_assert!(!self.is_started, ErrorKind::Invalid);
         track_assert_eq!(self.var_count(), len, ErrorKind::Invalid);
         self.is_started = true;
         Ok(self)
     }
-    fn serialize_tuple_variant(self,
-                               _name: &'static str,
-                               _variant_index: u32,
-                               _variant: &'static str,
-                               len: usize)
-                               -> Result<Self::SerializeTupleVariant> {
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
         track_assert!(!self.is_started, ErrorKind::Invalid);
         track_assert_eq!(self.var_count(), len, ErrorKind::Invalid);
         self.is_started = true;
@@ -190,12 +197,13 @@ impl<'a, 'b> ser::Serializer for &'a mut UrlPathSerializer<'b> {
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         track_panic!(ErrorKind::Invalid);
     }
-    fn serialize_struct_variant(self,
-                                _name: &'static str,
-                                _variant_index: u32,
-                                _variant: &'static str,
-                                _len: usize)
-                                -> Result<Self::SerializeStructVariant> {
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
         track_panic!(ErrorKind::Invalid);
     }
 }
@@ -203,7 +211,8 @@ impl<'a, 'b> ser::SerializeTuple for &'a mut UrlPathSerializer<'b> {
     type Ok = ();
     type Error = Error;
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track_try!(value.serialize(&mut **self));
         Ok(())
@@ -217,7 +226,8 @@ impl<'a, 'b> ser::SerializeTupleStruct for &'a mut UrlPathSerializer<'b> {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, value: &T) -> Result<()>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track_try!(value.serialize(&mut **self));
         Ok(())
@@ -231,7 +241,8 @@ impl<'a, 'b> ser::SerializeTupleVariant for &'a mut UrlPathSerializer<'b> {
     type Ok = ();
     type Error = Error;
     fn serialize_field<T>(&mut self, value: &T) -> Result<()>
-        where T: ?Sized + Serialize
+    where
+        T: ?Sized + Serialize,
     {
         track_try!(value.serialize(&mut **self));
         Ok(())

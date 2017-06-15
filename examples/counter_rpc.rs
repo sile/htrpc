@@ -22,27 +22,37 @@ use sloggers::Build;
 
 fn main() {
     let matches = App::new("counter_rpc")
-        .arg(Arg::with_name("HOST")
-                 .short("h")
-                 .long("host")
-                 .takes_value(true)
-                 .default_value("127.0.0.1"))
-        .arg(Arg::with_name("PORT")
-                 .short("p")
-                 .long("port")
-                 .takes_value(true)
-                 .default_value("3000"))
+        .arg(
+            Arg::with_name("HOST")
+                .short("h")
+                .long("host")
+                .takes_value(true)
+                .default_value("127.0.0.1"),
+        )
+        .arg(
+            Arg::with_name("PORT")
+                .short("p")
+                .long("port")
+                .takes_value(true)
+                .default_value("3000"),
+        )
         .subcommand(SubCommand::with_name("server"))
-        .subcommand(SubCommand::with_name("client")
-                        .arg(Arg::with_name("COUNTER_NAME")
-                                 .long("counter")
-                                 .takes_value(true)
-                                 .default_value("foo"))
-                        .arg(Arg::with_name("COUNT_VALUE")
-                                 .short("n")
-                                 .long("count_value")
-                                 .takes_value(true)
-                                 .default_value("1")))
+        .subcommand(
+            SubCommand::with_name("client")
+                .arg(
+                    Arg::with_name("COUNTER_NAME")
+                        .long("counter")
+                        .takes_value(true)
+                        .default_value("foo"),
+                )
+                .arg(
+                    Arg::with_name("COUNT_VALUE")
+                        .short("n")
+                        .long("count_value")
+                        .takes_value(true)
+                        .default_value("1"),
+                ),
+        )
         .get_matches();
     let host = matches.value_of("HOST").unwrap();
     let port = matches.value_of("PORT").unwrap();
@@ -66,9 +76,11 @@ fn main() {
     } else if let Some(_matches) = matches.subcommand_matches("server") {
         let mut builder = RpcServerBuilder::new(server_addr.parse().unwrap());
         track_try_unwrap!(builder.register(FetchAndAddHandler::new()));
-        let logger = track_try_unwrap!(sloggers::terminal::TerminalLoggerBuilder::new()
-                                           .level(sloggers::types::Severity::Debug)
-                                           .build());
+        let logger = track_try_unwrap!(
+            sloggers::terminal::TerminalLoggerBuilder::new()
+                .level(sloggers::types::Severity::Debug)
+                .build()
+        );
         builder.set_logger(logger);
         let server = builder.start(executor.handle());
         let monitor = executor.spawn_monitor(server.map_err(|e| panic!("{:?}", e)));
