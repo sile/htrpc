@@ -37,7 +37,7 @@ pub use server::{RpcServer, RpcServerBuilder};
 ///     &[PathSegment::Val("foo"), PathSegment::Var, PathSegment::Val("baz")];
 /// let p0 = EntryPoint::new(SEGMENTS);
 /// let p1 = htrpc_entry_point!["foo", _, "baz"];
-/// assert_eq!(p0, p1);
+/// asseart_eq!(p0, p1);
 /// # }
 /// ```
 #[macro_export]
@@ -66,6 +66,7 @@ pub mod deserializers;
 pub mod json;
 pub mod json_pretty;
 pub mod msgpack;
+pub mod pool;
 pub mod rfc7807;
 pub mod serializers;
 pub mod types;
