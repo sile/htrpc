@@ -121,6 +121,7 @@ impl RpcClientPool {
             .map(|(id, _)| id)
             .cloned()
             .nth(0)
+            .and_then(|id| if id.addr == addr { Some(id) } else { None })
         {
             self.lru_queue.remove(&id.seq_no);
             let connection = self.connections.remove(&id).expect("Never fails");
