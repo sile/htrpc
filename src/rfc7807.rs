@@ -183,11 +183,13 @@ pub struct TrackableProblem {
 
     /// The detail information of this problem.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub detail: Option<String>,
 
     /// The instance URI of this problem.
     #[serde(with = "url_serde")]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub instance: Option<Url>,
 
     /// The tracking number of this problem (this type specific field).
@@ -195,10 +197,12 @@ pub struct TrackableProblem {
     /// The format of this number is hexadecimal.
     #[serde(with = "tracking_number")]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub tracking_number: Option<TrackingNumber>,
 
     /// The tracking history of this problem (this type specific field).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub history: Option<Vec<String>>,
 }
 impl TrackableProblem {
