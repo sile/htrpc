@@ -31,32 +31,50 @@ impl RpcClient {
         P: Procedure,
     {
         let client = miasht::Client::new();
-        let future = Call {
+        let future = Call(CallInner {
             request: Some(request),
-            phase: Phase::A(client.connect(self.server)),
-        };
+            phase: Phase::A(client.connect(self.server).map_err(Error::from).boxed()),
+        });
         future
     }
 }
 
 /// A `Future` which represents an RPC invocation.
-pub struct Call<P>
+pub struct Call<P>(CallInner<P>)
 where
-    P: Procedure,
-{
-    request: Option<P::Request>,
-    phase: Phase<
-        miasht::client::Connect,
-        BoxFuture<Connection<TcpStream>, miasht::Error>,
-        BoxFuture<Response<TcpStream>, miasht::Error>,
-        BoxFuture<(Response<TcpStream>, Vec<u8>), miasht::Error>,
-    >,
-}
+    P: Procedure;
 impl<P> Future for Call<P>
 where
     P: Procedure,
 {
     type Item = P::Response;
+    type Error = Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((response, _)) = track!(self.0.poll())? {
+            Ok(Async::Ready(response))
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
+
+pub(crate) struct CallInner<P>
+where
+    P: Procedure,
+{
+    pub request: Option<P::Request>,
+    pub phase: Phase<
+        BoxFuture<Connection<TcpStream>, Error>,
+        BoxFuture<Connection<TcpStream>, miasht::Error>,
+        BoxFuture<Response<TcpStream>, miasht::Error>,
+        BoxFuture<(Response<TcpStream>, Vec<u8>), miasht::Error>,
+    >,
+}
+impl<P> Future for CallInner<P>
+where
+    P: Procedure,
+{
+    type Item = (P::Response, Connection<TcpStream>);
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -84,9 +102,11 @@ where
                 }
                 Async::Ready(Phase::D((response, body))) => {
                     // Converts from HTTP response to RPC response.
-                    let mut deserializer = RpcResponseDeserializer::new(&response, body);
-                    let rpc_response = track!(P::Response::deserialize(&mut deserializer))?;
-                    return Ok(Async::Ready(rpc_response));
+                    let rpc_response = {
+                        let mut deserializer = RpcResponseDeserializer::new(&response, body);
+                        track!(P::Response::deserialize(&mut deserializer))?
+                    };
+                    return Ok(Async::Ready((rpc_response, response.finish())));
                 }
                 _ => unreachable!(),
             };
