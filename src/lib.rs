@@ -37,7 +37,7 @@ pub use server::{RpcServer, RpcServerBuilder};
 ///     &[PathSegment::Val("foo"), PathSegment::Var, PathSegment::Val("baz")];
 /// let p0 = EntryPoint::new(SEGMENTS);
 /// let p1 = htrpc_entry_point!["foo", _, "baz"];
-/// asseart_eq!(p0, p1);
+/// assert_eq!(p0, p1);
 /// # }
 /// ```
 #[macro_export]
