@@ -12,6 +12,7 @@ use Error;
 use deserializers::RpcResponseDeserializer;
 use procedure::Procedure;
 use serializers::RpcRequestSerializer;
+use types::HttpMethod;
 
 /// RPC Client.
 #[derive(Debug)]
@@ -95,10 +96,15 @@ where
                 }
                 Async::Ready(Phase::C(response)) => {
                     // Reads HTTP response body.
-                    let future = futures::done(response.into_body_reader())
-                        .and_then(|res| res.read_all_bytes().map_err(|e| track!(e)))
-                        .map(|(res, body)| (res.into_inner(), body));
-                    Phase::D(future.boxed())
+                    let future = if P::method() == HttpMethod::Head {
+                        futures::finished((response, Vec::new())).boxed()
+                    } else {
+                        futures::done(response.into_body_reader())
+                            .and_then(|res| res.read_all_bytes().map_err(|e| track!(e)))
+                            .map(|(res, body)| (res.into_inner(), body))
+                            .boxed()
+                    };
+                    Phase::D(future)
                 }
                 Async::Ready(Phase::D((response, body))) => {
                     // Converts from HTTP response to RPC response.
