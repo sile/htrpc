@@ -20,7 +20,7 @@ use procedure::{Procedure, HandleRpc};
 use rfc7807::Problem;
 use router::{Router, RouterBuilder};
 use serializers::RpcResponseSerializer;
-use types::HttpStatus;
+use types::{HttpStatus, HttpMethod};
 
 /// The `RpcServer` builder.
 pub struct RpcServerBuilder {
@@ -139,6 +139,7 @@ impl Future for RpcServer {
                         logger: self.logger.clone(),
                         router: self.router.clone(),
                         phase: Phase::A(connected.boxed()),
+                        method: HttpMethod::Get, // Dummy
                     };
                     self.spawner.spawn(future);
                     Phase::B(incoming.into_future())
@@ -158,6 +159,7 @@ struct HandleHttpRequest {
         BoxFuture<Option<(Request<TcpStream>, Vec<u8>)>, miasht::Error>,
         BoxFuture<(Response<TcpStream>, Vec<u8>), Error>,
     >,
+    method: HttpMethod,
 }
 impl HandleHttpRequest {
     fn poll_impl(&mut self) -> Poll<(), Error> {
@@ -194,6 +196,7 @@ impl HandleHttpRequest {
                         request.path(),
                         body.len()
                     );
+                    self.method = request.method();
                     let future = match track!(misc::parse_relative_url(request.path())) {
                         Err(e) => {
                             let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
@@ -221,8 +224,12 @@ impl HandleHttpRequest {
                     Phase::C(future)
                 }
                 Async::Ready(Phase::C((response, body))) => {
-                    let future = response.write_all_bytes(body).and_then(|res| res);
-                    Phase::A(future.boxed())
+                    let future = if self.method == HttpMethod::Head {
+                        response.boxed()
+                    } else {
+                        response.write_all_bytes(body).and_then(|res| res).boxed()
+                    };
+                    Phase::A(future)
                 }
                 _ => unreachable!(),
             };
