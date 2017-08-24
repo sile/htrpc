@@ -9,7 +9,11 @@ use {Result, Error, ErrorKind};
 use procedure::EntryPoint;
 use types::{HttpMethod, HttpStatus};
 
-type HandleHttpRequestResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
+// type HandleHttpRequestResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
+type HandleHttpRequestResult = BoxFuture<
+    (Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>),
+    Error,
+>;
 type HandleHttpRequest = Box<
     Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult
         + Send

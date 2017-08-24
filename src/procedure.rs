@@ -125,7 +125,10 @@ pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> {}
 /// }
 /// # fn main() {}
 /// ```
-pub trait RpcResponse: Serialize + for<'a> Deserialize<'a> {}
+pub trait RpcResponse: Serialize + for<'a> Deserialize<'a> {
+    /// Returns the body of this HTTP response.
+    fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static>;
+}
 
 /// The entry point definition of a procedure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

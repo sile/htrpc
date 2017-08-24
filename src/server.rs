@@ -157,7 +157,7 @@ struct HandleHttpRequest {
     phase: Phase<
         BoxFuture<Connection<TcpStream>, miasht::Error>,
         BoxFuture<Option<(Request<TcpStream>, Vec<u8>)>, miasht::Error>,
-        BoxFuture<(Response<TcpStream>, Vec<u8>), Error>,
+        BoxFuture<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>), Error>,
     >,
     method: HttpMethod,
 }
@@ -227,7 +227,16 @@ impl HandleHttpRequest {
                     let future = if self.method == HttpMethod::Head {
                         response.boxed()
                     } else {
-                        response.write_all_bytes(body).and_then(|res| res).boxed()
+                        struct Temp(Box<AsRef<[u8]> + Send + 'static>);
+                        impl AsRef<[u8]> for Temp {
+                            fn as_ref(&self) -> &[u8] {
+                                (*self.0).as_ref()
+                            }
+                        }
+                        response
+                            .write_all_bytes(Temp(body))
+                            .and_then(|res| res)
+                            .boxed()
                     };
                     Phase::A(future)
                 }

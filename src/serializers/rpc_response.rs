@@ -7,8 +7,8 @@ use serde::ser::Impossible;
 use serdeconv;
 use trackable::error::ErrorKindExt;
 
-use {Result, Error, ErrorKind};
-use serializers::{HttpBodySerializer, HttpHeaderSerializer};
+use {Result, Error, ErrorKind, RpcResponse};
+use serializers::HttpHeaderSerializer;
 use types::HttpStatus;
 
 /// `Serializer` implementation for RPC response.
@@ -16,20 +16,20 @@ use types::HttpStatus;
 pub struct RpcResponseSerializer {
     connection: Option<Connection<TcpStream>>,
     response: Option<ResponseBuilder<TcpStream>>,
-    body: Vec<u8>,
 }
 impl RpcResponseSerializer {
     /// Serializes the RPC response.
     pub fn serialize<T>(
-        rpc_response: T,
+        mut rpc_response: T,
         connection: Connection<TcpStream>,
-    ) -> Result<(Response<TcpStream>, Vec<u8>)>
+    ) -> Result<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>)>
     where
-        T: Serialize,
+        T: Serialize + RpcResponse,
     {
         let mut serializer = RpcResponseSerializer::new(connection);
         track!(rpc_response.serialize(&mut serializer))?;
-        track!(serializer.finish())
+        let body = rpc_response.body();
+        track!(serializer.finish(body))
     }
 
     /// Makes a new `RpcResponseSerializer` instance.
@@ -37,16 +37,18 @@ impl RpcResponseSerializer {
         RpcResponseSerializer {
             connection: Some(connection),
             response: None,
-            body: Vec::new(),
         }
     }
 
     /// Finishes the serialization and returns the resulting HTTP response and body.
-    pub fn finish(self) -> Result<(Response<TcpStream>, Vec<u8>)> {
+    pub fn finish(
+        self,
+        body: Box<AsRef<[u8]> + Send + 'static>,
+    ) -> Result<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>)> {
         track_assert!(self.response.is_some(), ErrorKind::Invalid);
         let mut response = self.response.expect("Never fail");
-        response.add_header(&headers::ContentLength(self.body.len() as u64));
-        Ok((response.finish(), self.body))
+        response.add_header(&headers::ContentLength((*body).as_ref().len() as u64));
+        Ok((response.finish(), body))
     }
 }
 impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
@@ -220,12 +222,7 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
-            "body" => {
-                track_assert!(self.connection.is_none(), ErrorKind::Invalid);
-                let body = track!(value.serialize(HttpBodySerializer))?;
-                self.body = body;
-                Ok(())
-            }
+            "body" => Ok(()), // TODO: delete
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
         }
     }
@@ -247,11 +244,7 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
-            "body" => {
-                let body = track!(value.serialize(HttpBodySerializer))?;
-                self.body = body;
-                Ok(())
-            }
+            "body" => Ok(()), // TODO: delete
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
         }
     }

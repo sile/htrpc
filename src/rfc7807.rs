@@ -3,6 +3,7 @@
 //! [RFC 7807]: https://tools.ietf.org/html/rfc7807
 use std::error;
 use std::fmt;
+use serdeconv;
 use trackable::{Trackable, TrackingNumber};
 use url::Url;
 use url_serde;
@@ -36,7 +37,12 @@ impl ProblemResponse {
         &self.body
     }
 }
-impl RpcResponse for ProblemResponse {}
+impl RpcResponse for ProblemResponse {
+    fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static> {
+        let json = serdeconv::to_json_string_pretty(&self.body).expect("Never fails");
+        Box::new(json.into_bytes())
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ProblemHeader {
