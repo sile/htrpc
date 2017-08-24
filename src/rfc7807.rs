@@ -36,6 +36,11 @@ impl ProblemResponse {
     pub fn problem(&self) -> &Problem {
         &self.body
     }
+
+    /// Sets the `Problem` instance of this response.
+    pub fn set_problem(&mut self, problem: Problem) {
+        self.body = problem;
+    }
 }
 impl RpcResponse for ProblemResponse {
     fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static> {

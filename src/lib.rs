@@ -18,6 +18,24 @@ extern crate trackable;
 extern crate url;
 extern crate url_serde;
 
+pub use miasht::builtin::futures::FutureExt;
+
+#[allow(missing_docs)]
+pub type BodyReader =
+    miasht::builtin::io::BodyReader<miasht::server::Request<fibers::net::TcpStream>>;
+
+#[allow(missing_docs)]
+pub fn content_length(body: &BodyReader) -> Option<u64> {
+    if let miasht::builtin::io::BodyReader::FixedLength(ref r) = *body {
+        Some(r.limit())
+    } else {
+        None
+    }
+}
+
+#[allow(missing_docs)]
+pub type ReadBody<T> = futures::BoxFuture<(BodyReader, T), Error>;
+
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};
 pub use procedure::{Procedure, HandleRpc, RpcRequest, RpcResponse};

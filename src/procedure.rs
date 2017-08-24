@@ -1,6 +1,4 @@
-use std::io::Read;
 use futures::{Future, BoxFuture};
-use miasht::builtin::io::BodyReader;
 use serde::{Serialize, Deserialize};
 
 use Error;
@@ -41,99 +39,17 @@ pub struct NeverFail {
 /// RPC Request.
 ///
 /// Implementations of this trait have to follow conventions as follows.
-///
-/// ```no_run
-/// extern crate htrpc;
-/// extern crate serde;
-/// #[macro_use]
-/// extern crate serde_derive;
-///
-/// use htrpc::RpcRequest;
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct FooRequest {
-///     // This field will be processed by `UrlPathSerializer` and `UrlPathDeserializer`.
-///     // (optional)
-///     //
-///     // Note that the arity of this tuple must be equal to
-///     // the count of variables in the entry point of the RPC.
-///     path: (Arg0, Arg1),
-///
-///     // This field will be processed by `UrlQuerySerializer` and `UrlQueryDeserializer`.
-///     // (optional)
-///     query: Query,
-///
-///     // This field will be processed by `HttpHeaderSerializer` and `HttpHeaderDeserializer`.
-///     // (optional)
-///     //
-///     // Note that the following header fields are automatically inserted:
-///     // - Content-Length
-///     header: Header,
-///
-///     // This field will be processed by `HttpBodySerializer` and `HttpBodyDeserializer`.
-///     // (optional)
-///     //
-///     // If you want to specify a more structured object as the body of RPC request,
-///     // please consider to use the `#[serde(with = ...)]` attribute.
-///     body: Vec<u8>,
-/// }
-/// impl RpcRequest for FooRequest {}
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct Arg0(String);
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct Arg1(usize);
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct Query {
-///   key1: String,
-///   key2: Option<u8>,
-/// }
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct Header {
-///   #[serde(rename = "X-Foo")]
-///   foo: String
-/// }
-/// # fn main() {}
-/// ```
 pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> + Send + 'static {
     /// Returns the body of this HTTP response.
     fn body(&mut self) -> Vec<u8>;
 
     /// Reads the body of this HTTP response.
-    fn read_body<R: Read>(self, body: BodyReader<R>) -> BoxFuture<(BodyReader<R>, Self), Error>;
+    fn read_body(self, body: ::BodyReader) -> BoxFuture<(::BodyReader, Self), Error>;
 }
 
 /// RPC Response.
 ///
 /// Implementations of this trait have to follow conventions as follows.
-///
-/// ```no_run
-/// extern crate htrpc;
-/// extern crate serde;
-/// #[macro_use]
-/// extern crate serde_derive;
-///
-/// use htrpc::RpcResponse;
-///
-/// #[derive(Serialize, Deserialize)]
-/// enum FooResponse {
-///     Ok { header: Header, body: Vec<u8> },
-///     NotFound { header: Header },
-///     MethodNotAllowed,
-///     InternalServerError { body: String },
-/// }
-/// impl RpcResponse for FooResponse {}
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct Header {
-///   #[serde(rename = "X-Foo")]
-///   foo: String
-/// }
-/// # fn main() {}
-/// ```
 pub trait RpcResponse: Serialize + for<'a> Deserialize<'a> {
     /// Returns the body of this HTTP response.
     fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static>;
