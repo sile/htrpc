@@ -222,7 +222,6 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
-            "body" => Ok(()), // TODO: delete
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
         }
     }
@@ -244,7 +243,6 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
-            "body" => Ok(()), // TODO: delete
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
         }
     }

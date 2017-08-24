@@ -6,8 +6,8 @@ use futures::{self, Future, Poll, Async, Stream, BoxFuture};
 use futures::stream::StreamFuture;
 use handy_async::future::Phase;
 use miasht;
-use miasht::builtin::io::IoExt;
 use miasht::builtin::futures::FutureExt;
+use miasht::builtin::io::IoExt;
 use miasht::server::{Connection, Request, Response};
 use serde::Deserialize;
 use slog::{Logger, Discard};
@@ -44,40 +44,52 @@ impl RpcServerBuilder {
     }
 
     /// Registers an RPC handler.
-    pub fn register<P, H>(&mut self, handler: H) -> Result<()>
+    pub fn register<P, H>(&mut self, handler: H, _: P) -> Result<()>
     where
         P: Procedure,
         H: HandleRpc<P>,
     {
-        let handle_http_request = move |url, http_request, body| {
+        use RpcRequest;
+        let handle_http_request = move |url, http_request| {
             let handler = handler.clone();
-            let rpc_request = {
+            let rpc_request: P::Request = {
                 let deserialize_result = {
-                    let mut de =
-                        RpcRequestDeserializer::new(P::entry_point(), &url, &http_request, body);
+                    let mut de = RpcRequestDeserializer::new(P::entry_point(), &url, &http_request);
                     track!(Deserialize::deserialize(&mut de))
                 };
                 match deserialize_result {
                     Err(e) => {
-                        let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
-                            .into_response();
-                        let result = track!(RpcResponseSerializer::serialize(
-                            rpc_response,
-                            http_request.finish(),
-                        ));
-                        return futures::done(result).boxed();
+                        let future = futures::done(http_request.into_body_reader())
+                            .map_err(Error::from)
+                            .and_then(|request| request.read_all_bytes().map_err(Error::from))
+                            .and_then(move |(request, _)| {
+                                let http_request = request.into_inner();
+                                let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
+                                    .into_response();
+                                track!(RpcResponseSerializer::serialize(
+                                    rpc_response,
+                                    http_request.finish(),
+                                ))
+                            });
+                        return future.boxed();
                     }
                     Ok(r) => r,
                 }
             };
-            handler
-                .handle_rpc(rpc_request)
-                .map_err(|_| unreachable!())
-                .and_then(move |rpc_response| {
-                    track!(RpcResponseSerializer::serialize(
-                        rpc_response,
-                        http_request.finish(),
-                    ))
+            futures::done(http_request.into_body_reader())
+                .map_err(Error::from)
+                .and_then(move |http_request| rpc_request.read_body(http_request))
+                .and_then(move |(http_request, rpc_request)| {
+                    let http_request = http_request.into_inner();
+                    handler
+                        .handle_rpc(rpc_request)
+                        .map_err(|_| unreachable!())
+                        .and_then(move |rpc_response| {
+                            track!(RpcResponseSerializer::serialize(
+                                rpc_response,
+                                http_request.finish(),
+                            ))
+                        })
                 })
                 .boxed()
         };
@@ -156,7 +168,7 @@ struct HandleHttpRequest {
     router: Router,
     phase: Phase<
         BoxFuture<Connection<TcpStream>, miasht::Error>,
-        BoxFuture<Option<(Request<TcpStream>, Vec<u8>)>, miasht::Error>,
+        BoxFuture<Option<Request<TcpStream>>, miasht::Error>,
         BoxFuture<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>), Error>,
     >,
     method: HttpMethod,
@@ -167,60 +179,69 @@ impl HandleHttpRequest {
             let next = match track!(self.phase.poll().map_err(Error::from))? {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(connection)) => {
-                    let future = connection
-                        .read_request()
-                        .and_then(|req| req.into_body_reader())
-                        .and_then(|req| req.read_all_bytes())
-                        .map(|(req, body)| Some((req.into_inner(), body)))
-                        .or_else(|e| {
-                            if let Some(e) = e.concrete_cause::<io::Error>() {
-                                if e.kind() == io::ErrorKind::UnexpectedEof ||
-                                    e.kind() == io::ErrorKind::ConnectionReset
-                                {
-                                    // The connection is reset by the peer.
-                                    return Ok(None);
-                                }
+                    let future = connection.read_request().map(Some).or_else(|e| {
+                        if let Some(e) = e.concrete_cause::<io::Error>() {
+                            if e.kind() == io::ErrorKind::UnexpectedEof ||
+                                e.kind() == io::ErrorKind::ConnectionReset
+                            {
+                                // The connection is reset by the peer.
+                                return Ok(None);
                             }
-                            Err(e)
-                        });
+                        }
+                        Err(e)
+                    });
                     Phase::B(future.boxed())
                 }
                 Async::Ready(Phase::B(None)) => {
                     return Ok(Async::Ready(()));
                 }
-                Async::Ready(Phase::B(Some((request, body)))) => {
+                Async::Ready(Phase::B(Some(request))) => {
                     debug!(
                         self.logger,
-                        "RPC request: method={}, path={:?}, body_bytes={}",
+                        "RPC request: method={}, path={:?}",
                         request.method(),
                         request.path(),
-                        body.len()
                     );
                     self.method = request.method();
-                    let future = match track!(misc::parse_relative_url(request.path())) {
-                        Err(e) => {
-                            let rpc_response = Problem::trackable(HttpStatus::BadRequest, e)
-                                .into_response();
-                            let result = track!(RpcResponseSerializer::serialize(
-                                rpc_response,
-                                request.finish(),
-                            ));
-                            futures::done(result).boxed()
-                        }
-                        Ok(url) => {
-                            match self.router.route(&url, &request) {
-                                Err(status) => {
+                    let future =
+                        match track!(misc::parse_relative_url(request.path())) {
+                            Err(e) => {
+                                futures::done(request.into_body_reader())
+                                    .map_err(Error::from)
+                                    .and_then(
+                                        |request| request.read_all_bytes().map_err(Error::from),
+                                    )
+                                    .and_then(|(request, _)| {
+                                        let request = request.into_inner();
+                                        let rpc_response =
+                                            Problem::trackable(HttpStatus::BadRequest, e)
+                                                .into_response();
+                                        track!(RpcResponseSerializer::serialize(
+                                            rpc_response,
+                                            request.finish(),
+                                        ))
+                                    })
+                                    .boxed()
+                            }
+                            Ok(url) => {
+                                match self.router.route(&url, &request) {
+                                    Err(status) => {
+                            futures::done(request.into_body_reader())
+                                .map_err(Error::from)
+                                .and_then(|request| request.read_all_bytes().map_err(Error::from))
+                                .and_then(move |(request, _)| {
+                                    let request = request.into_inner();
                                     let rpc_response = Problem::about_blank(status).into_response();
-                                    let result = track!(RpcResponseSerializer::serialize(
+                                     track!(RpcResponseSerializer::serialize(
                                         rpc_response,
                                         request.finish(),
-                                    ));
-                                    futures::done(result).boxed()
+                                    ))
+                                }).boxed()
                                 }
-                                Ok(handler) => handler(url, request, body),
+                                    Ok(handler) => handler(url, request),
+                                }
                             }
-                        }
-                    };
+                        };
                     Phase::C(future)
                 }
                 Async::Ready(Phase::C((response, body))) => {

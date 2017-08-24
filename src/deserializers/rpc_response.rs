@@ -3,14 +3,13 @@ use miasht::client::Response;
 use serde::de::{self, Visitor, IntoDeserializer};
 
 use {Result, Error, ErrorKind};
-use deserializers::{HttpHeaderDeserializer, HttpBodyDeserializer};
+use deserializers::HttpHeaderDeserializer;
 
 #[derive(Debug, Clone, Copy)]
 enum Phase {
     Init,
     Status,
     Header,
-    Body,
 }
 
 /// `Deserializer` implementation for RPC response.
@@ -18,15 +17,13 @@ enum Phase {
 pub struct RpcResponseDeserializer<'de> {
     phase: Phase,
     response: &'de Response<TcpStream>,
-    body: Vec<u8>,
 }
 impl<'de> RpcResponseDeserializer<'de> {
     /// Makes a new `RpcResponseDeserializer` instance.
-    pub fn new(response: &'de Response<TcpStream>, body: Vec<u8>) -> Self {
+    pub fn new(response: &'de Response<TcpStream>) -> Self {
         RpcResponseDeserializer {
             phase: Phase::Init,
             response,
-            body,
         }
     }
 }
@@ -243,13 +240,7 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
                 let value = track!(seed.deserialize(deserializer))?;
                 Ok(Some(value))
             }
-            Phase::Header => {
-                self.phase = Phase::Body;
-                let deserializer: StrDeserializer<Error> = "body".into_deserializer();
-                let value = track!(seed.deserialize(deserializer))?;
-                Ok(Some(value))
-            }
-            Phase::Body => Ok(None),
+            Phase::Header => Ok(None),
         }
     }
 
@@ -268,13 +259,6 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcResponseDeserializer<'de> {
             Phase::Header => {
                 let mut de = HttpHeaderDeserializer::new(self.response.headers());
                 let v = track!(seed.deserialize(&mut de))?;
-                Ok(v)
-            }
-            Phase::Body => {
-                use std::mem;
-                let body = mem::replace(&mut self.body, Vec::new());
-                let de = HttpBodyDeserializer::new(body);
-                let v = track!(seed.deserialize(de))?;
                 Ok(v)
             }
         }

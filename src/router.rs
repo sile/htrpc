@@ -15,7 +15,7 @@ type HandleHttpRequestResult = BoxFuture<
     Error,
 >;
 type HandleHttpRequest = Box<
-    Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult
+    Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult
         + Send
         + 'static,
 >;
@@ -62,7 +62,7 @@ impl RouterBuilder {
         handler: H,
     ) -> Result<()>
     where
-        H: Fn(Url, Request<TcpStream>, Vec<u8>) -> HandleHttpRequestResult,
+        H: Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult,
     {
         track!(self.trie.insert(method, &entry_point, Box::new(handler)))?;
         Ok(())

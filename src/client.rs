@@ -83,11 +83,13 @@ where
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(Phase::A(connection)) => {
                     // Writes HTTP request.
+                    use RpcRequest;
                     let entry_point = P::entry_point();
-                    let rpc_request = self.request.take().expect("Never fail");
+                    let mut rpc_request = self.request.take().expect("Never fail");
                     let mut ser = RpcRequestSerializer::new(connection, P::method(), entry_point);
                     track!(rpc_request.serialize(&mut ser))?;
-                    let (request, body) = track!(ser.finish())?;
+                    let body = rpc_request.body();
+                    let request = track!(ser.finish(&body))?;
                     Phase::B(request.write_all_bytes(body).and_then(|r| r).boxed())
                 }
                 Async::Ready(Phase::B(connection)) => {
@@ -108,10 +110,12 @@ where
                 }
                 Async::Ready(Phase::D((response, body))) => {
                     // Converts from HTTP response to RPC response.
-                    let rpc_response = {
-                        let mut deserializer = RpcResponseDeserializer::new(&response, body);
+                    use RpcResponse;
+                    let mut rpc_response = {
+                        let mut deserializer = RpcResponseDeserializer::new(&response);
                         track!(P::Response::deserialize(&mut deserializer))?
                     };
+                    rpc_response.set_body(body);
                     return Ok(Async::Ready((rpc_response, response.finish())));
                 }
                 _ => unreachable!(),

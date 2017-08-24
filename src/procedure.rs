@@ -1,6 +1,9 @@
-use futures::Future;
+use std::io::Read;
+use futures::{Future, BoxFuture};
+use miasht::builtin::io::BodyReader;
 use serde::{Serialize, Deserialize};
 
+use Error;
 use types::HttpMethod;
 
 /// Procedure definition.
@@ -95,7 +98,13 @@ pub struct NeverFail {
 /// }
 /// # fn main() {}
 /// ```
-pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> {}
+pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> + Send + 'static {
+    /// Returns the body of this HTTP response.
+    fn body(&mut self) -> Vec<u8>;
+
+    /// Reads the body of this HTTP response.
+    fn read_body<R: Read>(self, body: BodyReader<R>) -> BoxFuture<(BodyReader<R>, Self), Error>;
+}
 
 /// RPC Response.
 ///
@@ -128,6 +137,9 @@ pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> {}
 pub trait RpcResponse: Serialize + for<'a> Deserialize<'a> {
     /// Returns the body of this HTTP response.
     fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static>;
+
+    /// Sets the body of this HTTP response.
+    fn set_body(&mut self, body: Vec<u8>);
 }
 
 /// The entry point definition of a procedure.

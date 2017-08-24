@@ -7,7 +7,7 @@ use url::{self, Url};
 
 use {Result, Error, ErrorKind};
 use types::{EntryPoint, HttpMethod};
-use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpBodySerializer, HttpHeaderSerializer};
+use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpHeaderSerializer};
 
 /// `Serializer` implementation for RPC request.
 #[derive(Debug)]
@@ -18,7 +18,6 @@ pub struct RpcRequestSerializer {
     entry_point: EntryPoint,
     connection: Option<Connection<TcpStream>>,
     request: Option<RequestBuilder<TcpStream>>,
-    body: Vec<u8>,
 }
 impl RpcRequestSerializer {
     /// Makes a new `RpcRequestSerializer` instance.
@@ -34,16 +33,15 @@ impl RpcRequestSerializer {
             entry_point,
             connection: Some(connection),
             request: None,
-            body: Vec::new(),
         }
     }
 
     /// Finishes the serialization and returns the resulting HTTP request and body.
-    pub fn finish(self) -> Result<(Request<TcpStream>, Vec<u8>)> {
+    pub fn finish(self, body: &[u8]) -> Result<Request<TcpStream>> {
         track_assert!(self.request.is_some(), ErrorKind::Invalid);
         let mut request = self.request.unwrap();
-        request.add_header(&ContentLength(self.body.len() as u64));
-        Ok((request.finish(), self.body))
+        request.add_header(&ContentLength(body.len() as u64));
+        Ok(request.finish())
     }
 }
 impl<'a> ser::Serializer for &'a mut RpcRequestSerializer {
@@ -224,11 +222,6 @@ impl<'a> ser::SerializeStruct for &'a mut RpcRequestSerializer {
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
             }
-            "body" => {
-                let body = track!(value.serialize(HttpBodySerializer))?;
-                self.body = body;
-                Ok(())
-            }
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),
         }
     }
@@ -248,11 +241,6 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcRequestSerializer {
                 let mut request = self.request.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
                 track!(value.serialize(&mut serializer))?;
-                Ok(())
-            }
-            "body" => {
-                let body = track!(value.serialize(HttpBodySerializer))?;
-                self.body = body;
                 Ok(())
             }
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),

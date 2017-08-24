@@ -20,7 +20,7 @@ use types::HttpStatus;
 pub struct ProblemResponse {
     status: Option<u16>,
     header: ProblemHeader,
-    #[serde(with = "::json_pretty")]
+    #[serde(skip)]
     body: Problem,
 }
 impl ProblemResponse {
@@ -41,6 +41,12 @@ impl RpcResponse for ProblemResponse {
     fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static> {
         let json = serdeconv::to_json_string_pretty(&self.body).expect("Never fails");
         Box::new(json.into_bytes())
+    }
+    fn set_body(&mut self, body: Vec<u8>) {
+        if let Ok(body) = serdeconv::from_json_slice(&body) {
+            // TODO
+            self.body = body;
+        }
     }
 }
 
@@ -140,6 +146,11 @@ impl Problem {
             Problem::AboutBlank(ref p) => p.status,
             Problem::Trackable(ref p) => p.status,
         }
+    }
+}
+impl Default for Problem {
+    fn default() -> Self {
+        Problem::about_blank(HttpStatus::InternalServerError)
     }
 }
 impl From<AboutBlankProblem> for Problem {

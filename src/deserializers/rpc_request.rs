@@ -4,8 +4,7 @@ use serde::de::{self, Visitor};
 use url::Url;
 
 use {Result, Error, ErrorKind};
-use deserializers::{UrlPathDeserializer, UrlQueryDeserializer, HttpHeaderDeserializer,
-                    HttpBodyDeserializer};
+use deserializers::{UrlPathDeserializer, UrlQueryDeserializer, HttpHeaderDeserializer};
 use types::EntryPoint;
 
 #[derive(Debug, Clone, Copy)]
@@ -14,7 +13,6 @@ enum Phase {
     Path,
     Query,
     Header,
-    Body,
 }
 
 /// `Deserializer` implementation for RPC request.
@@ -24,22 +22,15 @@ pub struct RpcRequestDeserializer<'de> {
     entry_point: EntryPoint,
     url: &'de Url,
     request: &'de Request<TcpStream>,
-    body: Vec<u8>,
 }
 impl<'de> RpcRequestDeserializer<'de> {
     /// Makes a new `RpcRequestDeserializer` instance.
-    pub fn new(
-        entry_point: EntryPoint,
-        url: &'de Url,
-        request: &'de Request<TcpStream>,
-        body: Vec<u8>,
-    ) -> Self {
+    pub fn new(entry_point: EntryPoint, url: &'de Url, request: &'de Request<TcpStream>) -> Self {
         RpcRequestDeserializer {
             phase: Phase::Init,
             entry_point,
             url,
             request,
-            body,
         }
     }
 }
@@ -264,13 +255,7 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcRequestDeserializer<'de> {
                 let value = track!(seed.deserialize(deserializer))?;
                 Ok(Some(value))
             }
-            Phase::Header => {
-                self.phase = Phase::Body;
-                let deserializer: StrDeserializer<Error> = "body".into_deserializer();
-                let value = track!(seed.deserialize(deserializer))?;
-                Ok(Some(value))
-            }
-            Phase::Body => Ok(None),
+            Phase::Header => Ok(None),
         }
     }
 
@@ -293,13 +278,6 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut RpcRequestDeserializer<'de> {
             Phase::Header => {
                 let mut de = HttpHeaderDeserializer::new(self.request.headers());
                 let v = track!(seed.deserialize(&mut de))?;
-                Ok(v)
-            }
-            Phase::Body => {
-                use std::mem;
-                let body = mem::replace(&mut self.body, Vec::new());
-                let de = HttpBodyDeserializer::new(body);
-                let v = track!(seed.deserialize(de))?;
                 Ok(v)
             }
         }
