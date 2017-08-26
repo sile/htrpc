@@ -37,11 +37,21 @@ impl RpcRequestSerializer {
     }
 
     /// Finishes the serialization and returns the resulting HTTP request and body.
-    pub fn finish(self, body: &[u8]) -> Result<Request<TcpStream>> {
-        track_assert!(self.request.is_some(), ErrorKind::Invalid);
-        let mut request = self.request.unwrap();
+    pub fn finish(mut self, body: &[u8]) -> Result<Request<TcpStream>> {
+        let mut request = self.take_request();
         request.add_header(&ContentLength(body.len() as u64));
         Ok(request.finish())
+    }
+
+    fn take_request(&mut self) -> RequestBuilder<TcpStream> {
+        if let Some(request) = self.request.take() {
+            request
+        } else {
+            assert!(self.connection.is_some());
+            let relative_url = &self.temp_url[url::Position::BeforePath..];
+            let connection = self.connection.take().unwrap();
+            connection.build_request(self.method, relative_url)
+        }
     }
 }
 impl<'a> ser::Serializer for &'a mut RpcRequestSerializer {
@@ -217,9 +227,12 @@ impl<'a> ser::SerializeStruct for &'a mut RpcRequestSerializer {
                 Ok(())
             }
             "header" => {
-                let mut request = self.request.as_mut().unwrap();
-                let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
-                track!(value.serialize(&mut serializer))?;
+                let mut request = self.take_request();
+                {
+                    let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
+                    track!(value.serialize(&mut serializer))?;
+                }
+                self.request = Some(request);
                 Ok(())
             }
             _ => track_panic!(ErrorKind::Invalid, "Unknown field: {:?}", key),

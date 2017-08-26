@@ -1,7 +1,6 @@
-use futures::{Future, BoxFuture};
+use futures::Future;
 use serde::{Serialize, Deserialize};
 
-use Error;
 use types::HttpMethod;
 
 /// Procedure definition.
@@ -44,7 +43,7 @@ pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> + Send + 'static {
     fn body(&mut self) -> Vec<u8>;
 
     /// Reads the body of this HTTP response.
-    fn read_body(self, body: ::BodyReader) -> BoxFuture<(::BodyReader, Self), Error>;
+    fn read_body(self, body: ::BodyReader) -> ::ReadBody<Self>;
 }
 
 /// RPC Response.

@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use fibers::net::TcpStream;
-use futures::{self, Future, Poll, Async, BoxFuture};
+use futures::{self, Future, Poll, Async};
 use handy_async::future::Phase;
 use miasht;
 use miasht::builtin::io::IoExt;
@@ -13,6 +13,8 @@ use deserializers::RpcResponseDeserializer;
 use procedure::Procedure;
 use serializers::RpcRequestSerializer;
 use types::HttpMethod;
+
+type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send + 'static>;
 
 /// RPC Client.
 #[derive(Debug)]
@@ -34,7 +36,7 @@ impl RpcClient {
         let client = miasht::Client::new();
         let future = Call(CallInner {
             request: Some(request),
-            phase: Phase::A(client.connect(self.server).map_err(Error::from).boxed()),
+            phase: Phase::A(Box::new(client.connect(self.server).map_err(Error::from))),
         });
         future
     }
@@ -90,21 +92,24 @@ where
                     track!(rpc_request.serialize(&mut ser))?;
                     let body = rpc_request.body();
                     let request = track!(ser.finish(&body))?;
-                    Phase::B(request.write_all_bytes(body).and_then(|r| r).boxed())
+                    let future: BoxFuture<_, _> =
+                        Box::new(request.write_all_bytes(body).and_then(|r| r));
+                    Phase::B(future)
                 }
                 Async::Ready(Phase::B(connection)) => {
                     // Reads HTTP response (without body).
-                    Phase::C(connection.read_response().boxed())
+                    let future: BoxFuture<_, _> = Box::new(connection.read_response());
+                    Phase::C(future)
                 }
                 Async::Ready(Phase::C(response)) => {
                     // Reads HTTP response body.
-                    let future = if P::method() == HttpMethod::Head {
-                        futures::finished((response, Vec::new())).boxed()
+                    let future: BoxFuture<_, _> = if P::method() == HttpMethod::Head {
+                        Box::new(futures::finished((response, Vec::new())))
                     } else {
-                        futures::done(response.into_body_reader())
+                        let future = futures::done(response.into_body_reader())
                             .and_then(|res| res.read_all_bytes().map_err(|e| track!(e)))
-                            .map(|(res, body)| (res.into_inner(), body))
-                            .boxed()
+                            .map(|(res, body)| (res.into_inner(), body));
+                        Box::new(future)
                     };
                     Phase::D(future)
                 }

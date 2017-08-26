@@ -205,7 +205,7 @@ impl<'a> PooledRpcClient<'a> {
         let future = self.handle.acquire_connection(self.addr);
         let inner = CallInner {
             request: Some(request),
-            phase: Phase::A(future.boxed()),
+            phase: Phase::A(Box::new(future)),
         };
         let future = Call {
             inner,

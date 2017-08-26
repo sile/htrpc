@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use fibers::net::TcpStream;
-use futures::BoxFuture;
+use futures::Future;
 use miasht::server::{Request, Response};
 use url::Url;
 
@@ -9,10 +9,14 @@ use {Result, Error, ErrorKind};
 use procedure::EntryPoint;
 use types::{HttpMethod, HttpStatus};
 
-// type HandleHttpRequestResult = BoxFuture<(Response<TcpStream>, Vec<u8>), Error>;
-type HandleHttpRequestResult = BoxFuture<
-    (Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>),
-    Error,
+type HandleHttpRequestResult = Box<
+    Future<
+        Item = (Response<TcpStream>,
+                Box<AsRef<[u8]> + Send + 'static>),
+        Error = Error,
+    >
+        + Send
+        + 'static,
 >;
 type HandleHttpRequest = Box<
     Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult
