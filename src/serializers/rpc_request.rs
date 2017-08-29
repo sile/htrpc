@@ -48,6 +48,13 @@ impl RpcRequestSerializer {
             request
         } else {
             assert!(self.connection.is_some());
+            if !self.is_path_initialized {
+                let mut serializer = track_try_unwrap!(UrlPathSerializer::new(
+                    &self.entry_point,
+                    &mut self.temp_url,
+                ));
+                track_try_unwrap!(().serialize(&mut serializer));
+            }
             let relative_url = &self.temp_url[url::Position::BeforePath..];
             let connection = self.connection.take().unwrap();
             connection.build_request(self.method, relative_url)
