@@ -73,6 +73,15 @@ impl From<serdeconv::Error> for Error {
         }
     }
 }
+impl<E: Into<Error>> From<Option<E>> for Error {
+    fn from(f: Option<E>) -> Self {
+        if let Some(e) = f {
+            e.into()
+        } else {
+            ErrorKind::Other.cause("timeout").into()
+        }
+    }
+}
 impl<A, B, C, D, E> From<Phase<A, B, C, D, E>> for Error
 where
     Error: From<A>,

@@ -1,16 +1,20 @@
 //! Connection pool.
 use std::cmp::Ordering;
-use std::collections::{Bound, BTreeMap};
+use std::collections::{Bound, BTreeMap, HashMap};
+use std::fmt;
 use std::net::SocketAddr;
+use std::time::{Duration, SystemTime};
 use fibers::net::TcpStream;
 use fibers::sync::mpsc;
 use fibers::sync::oneshot;
+use fibers::time::timer::{TimerExt, TimeoutAfter};
 use futures::{self, Future, Async, Poll, Stream};
-use futures::future::Finished;
+use futures::future::Done;
 use handy_async::future::Phase;
 use miasht;
+use trackable::error::ErrorKindExt;
 
-use {Error, Procedure};
+use {Error, ErrorKind, Procedure};
 use client::CallInner;
 
 type TcpConnection = miasht::client::Connection<TcpStream>;
@@ -47,25 +51,43 @@ enum Command {
         addr: SocketAddr,
         connection: TcpConnection,
     },
+    AddToBlacklist { addr: SocketAddr },
 }
 
-#[derive(Debug)]
 struct PooledConnection {
-    phase: Phase<Finished<TcpConnection, Error>, miasht::client::Connect>,
+    on_error: Option<(SocketAddr, mpsc::Sender<Command>)>,
+    phase: Phase<Done<TcpConnection, Error>, TimeoutAfter<miasht::client::Connect>>,
+}
+impl PooledConnection {
+    fn failed(error: Error) -> Self {
+        let phase = Phase::A(futures::failed(error));
+        PooledConnection {
+            on_error: None,
+            phase,
+        }
+    }
 }
 impl Future for PooledConnection {
     type Item = TcpConnection;
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready(phase) = track!(self.phase.poll().map_err(Error::from))? {
-            match phase {
-                Phase::A(connection) => Ok(Async::Ready(connection)),
-                Phase::B(connection) => Ok(Async::Ready(connection)),
-                _ => unreachable!(),
+        match track!(self.phase.poll().map_err(Error::from)) {
+            Err(e) => {
+                if let Some((addr, tx)) = self.on_error.take() {
+                    let _ = tx.send(Command::AddToBlacklist { addr });
+                }
+                Err(e)
             }
-        } else {
-            Ok(Async::NotReady)
+            Ok(Async::Ready(Phase::A(connection))) => Ok(Async::Ready(connection)),
+            Ok(Async::Ready(Phase::B(connection))) => Ok(Async::Ready(connection)),
+            Ok(Async::Ready(_)) => unreachable!(),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
         }
+    }
+}
+impl fmt::Debug for PooledConnection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PooledConnection {{ .. }}")
     }
 }
 
@@ -78,6 +100,9 @@ pub struct RpcClientPool {
     command_tx: mpsc::Sender<Command>,
     command_rx: mpsc::Receiver<Command>,
     seq_no: u64,
+    blacklist: HashMap<SocketAddr, SystemTime>,
+    suspended_duration: Duration,
+    connect_timeout: Duration,
 }
 impl RpcClientPool {
     /// Makes a new `RpcClientPool` with the default pool size (1024).
@@ -95,6 +120,9 @@ impl RpcClientPool {
             command_tx,
             command_rx,
             seq_no: 0,
+            blacklist: HashMap::new(),
+            suspended_duration: Duration::from_secs(60),
+            connect_timeout: Duration::from_secs(1),
         }
     }
 
@@ -103,14 +131,44 @@ impl RpcClientPool {
         RpcClientPoolHandle { command_tx: self.command_tx.clone() }
     }
 
+    /// Sets the suspended duration of an erroneous TCP address.
+    pub fn set_suspended_duration(&mut self, duration: Duration) {
+        self.suspended_duration = duration;
+    }
+
+    /// Sets the timeout of a TCP connecting phase.
+    pub fn set_connect_timeout(&mut self, timeout: Duration) {
+        self.connect_timeout = timeout;
+    }
+
     fn handle_command(&mut self, command: Command) {
         match command {
             Command::AcquireConnection { addr, reply } => {
+                if let Some(suspended_until) = self.blacklist.remove(&addr) {
+                    if suspended_until > SystemTime::now() {
+                        self.blacklist.insert(addr, suspended_until);
+                        let future = PooledConnection::failed(
+                            ErrorKind::Other
+                                .cause(format!(
+                                    "The address {:?} is unavailable until {:?}",
+                                    addr,
+                                    suspended_until
+                                ))
+                                .into(),
+                        );
+                        let _ = reply.send(future);
+                        return;
+                    }
+                }
                 let future = self.acquire_connection(addr);
                 let _ = reply.send(future);
             }
             Command::ReleaseConnection { addr, connection } => {
                 self.release_connection(addr, connection);
+            }
+            Command::AddToBlacklist { addr } => {
+                let suspended_until = SystemTime::now() + self.suspended_duration;
+                self.blacklist.insert(addr, suspended_until);
             }
         }
     }
@@ -126,10 +184,18 @@ impl RpcClientPool {
             self.lru_queue.remove(&id.seq_no);
             let connection = self.connections.remove(&id).expect("Never fails");
             let phase = Phase::A(futures::finished(connection));
-            PooledConnection { phase }
+            PooledConnection {
+                phase,
+                on_error: None,
+            }
         } else {
-            let phase = Phase::B(miasht::client::Client::new().connect(addr));
-            PooledConnection { phase }
+            let phase = Phase::B(miasht::client::Client::new().connect(addr).timeout_after(
+                self.connect_timeout,
+            ));
+            PooledConnection {
+                phase,
+                on_error: Some((addr, self.command_tx.clone())),
+            }
         }
     }
     fn release_connection(&mut self, addr: SocketAddr, connection: TcpConnection) {
