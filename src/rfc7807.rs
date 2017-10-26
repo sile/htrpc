@@ -57,7 +57,7 @@ impl RpcResponse for ProblemResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ProblemHeader {
-    #[serde(rename = "Content-Type")]
+    #[serde(rename = "content-type")]
     content_type: ContentTypeProblemJson,
 }
 impl ProblemHeader {

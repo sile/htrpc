@@ -1,4 +1,5 @@
 use std;
+use std::borrow::Cow;
 use std::iter::Peekable;
 use serde::de::{self, Visitor};
 use miasht::header::{Headers, Iter as HeadersIter};
@@ -43,13 +44,13 @@ impl<'de> HttpHeaderDeserializer<'de> {
     fn is_end_of_header(&mut self) -> bool {
         self.headers.peek().is_none()
     }
-    fn next_bytes(&mut self) -> Result<&'de [u8]> {
+    fn next_bytes(&mut self) -> Result<Cow<'de, [u8]>> {
         if let Some(&(k, v)) = self.headers.peek() {
             let v = match self.phase {
-                Phase::Key => k.as_bytes(),
+                Phase::Key => Cow::Owned(k.to_lowercase().into_bytes()),
                 Phase::Value => {
                     let _ = self.headers.next();
-                    v
+                    Cow::Borrowed(v)
                 }
             };
             self.phase.next();
@@ -178,9 +179,16 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track!(self.next_bytes())?;
-        let v = track!(std::str::from_utf8(v).map_err(Error::from))?;
-        track!(visitor.visit_borrowed_str(v))
+        match track!(self.next_bytes())? {
+            Cow::Borrowed(v) => {
+                let v = track!(std::str::from_utf8(v).map_err(Error::from))?;
+                track!(visitor.visit_borrowed_str(v))
+            }
+            Cow::Owned(v) => {
+                let v = track!(String::from_utf8(v).map_err(Error::from))?;
+                track!(visitor.visit_string(v))
+            }
+        }
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -194,8 +202,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let v = track!(self.next_bytes())?;
-        track!(visitor.visit_borrowed_bytes(v))
+        match track!(self.next_bytes())? {
+            Cow::Borrowed(v) => track!(visitor.visit_borrowed_bytes(v)),
+            Cow::Owned(v) => track!(visitor.visit_byte_buf(v)),
+        }
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
@@ -224,7 +234,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut HttpHeaderDeserializer<'de> {
         V: Visitor<'de>,
     {
         let v = track!(self.next_bytes())?;
-        let v = track!(std::str::from_utf8(v).map_err(Error::from))?;
+        let v = track!(std::str::from_utf8(v.as_ref()).map_err(Error::from))?;
         track_assert_eq!(v, name, ErrorKind::Invalid);
         track!(visitor.visit_unit())
     }
@@ -331,11 +341,11 @@ impl<'de, 'a> de::MapAccess<'de> for &'a mut HttpHeaderDeserializer<'de> {
     }
 }
 
-fn parse_slice<T: std::str::FromStr>(bytes: &[u8]) -> Result<T>
+fn parse_slice<T: std::str::FromStr, B: AsRef<[u8]>>(bytes: B) -> Result<T>
 where
     Error: From<T::Err>,
 {
-    let s = std::str::from_utf8(bytes).map_err(|e| {
+    let s = std::str::from_utf8(bytes.as_ref()).map_err(|e| {
         track!(ErrorKind::Invalid.cause(e))
     })?;
     let v = track!(s.parse().map_err(Error::from))?;
