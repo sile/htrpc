@@ -121,7 +121,7 @@ impl<'a> ser::Serializer for &'a mut RpcResponseSerializer {
         track_panic!(ErrorKind::Invalid);
     }
     fn serialize_unit_variant(
-        mut self,
+        self,
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
@@ -217,7 +217,7 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
             }
             "header" => {
                 track_assert!(self.connection.is_none(), ErrorKind::Invalid);
-                let mut response = self.response.as_mut().unwrap();
+                let response = self.response.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(response.headers_mut());
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
@@ -238,7 +238,7 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcResponseSerializer {
     {
         match key {
             "header" => {
-                let mut response = self.response.as_mut().unwrap();
+                let response = self.response.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(response.headers_mut());
                 track!(value.serialize(&mut serializer))?;
                 Ok(())

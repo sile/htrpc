@@ -258,7 +258,7 @@ impl<'a> ser::SerializeStructVariant for &'a mut RpcRequestSerializer {
     {
         match key {
             "header" => {
-                let mut request = self.request.as_mut().unwrap();
+                let request = self.request.as_mut().unwrap();
                 let mut serializer = HttpHeaderSerializer::new(request.headers_mut());
                 track!(value.serialize(&mut serializer))?;
                 Ok(())
