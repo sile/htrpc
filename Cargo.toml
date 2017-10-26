@@ -1,6 +1,6 @@
 [package]
 name = "htrpc"
-version = "0.0.14"
+version = "0.0.15"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 description = "HTTP based RPC library"
 homepage = "https://github.com/sile/htrpc"
