@@ -148,7 +148,10 @@ impl Future for RpcServer {
                     debug!(self.logger, "New client is connected: {}", addr);
 
                     let connected = connected.then(|result| {
-                        let stream = track!(result.map_err(miasht::Error::from))?;
+                        let mut stream = track!(result.map_err(miasht::Error::from))?;
+                        unsafe {
+                            let _ = stream.with_inner(|inner| inner.set_nodelay(true));
+                        }
                         Ok(Connection::new(stream, 1024, 8096, 32))
                     });
                     let future = HandleHttpRequest {
