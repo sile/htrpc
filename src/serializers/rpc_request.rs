@@ -1,13 +1,13 @@
 use fibers::net::TcpStream;
 use miasht::builtin::headers::ContentLength;
-use miasht::client::{Connection, RequestBuilder, Request};
+use miasht::client::{Connection, Request, RequestBuilder};
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use url::{self, Url};
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 use types::{EntryPoint, HttpMethod};
-use serializers::{UrlPathSerializer, UrlQuerySerializer, HttpHeaderSerializer};
+use serializers::{HttpHeaderSerializer, UrlPathSerializer, UrlQuerySerializer};
 
 /// `Serializer` implementation for RPC request.
 #[derive(Debug)]

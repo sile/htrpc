@@ -20,8 +20,7 @@ use types::HttpStatus;
 pub struct ProblemResponse {
     status: Option<u16>,
     header: ProblemHeader,
-    #[serde(skip)]
-    body: Problem,
+    #[serde(skip)] body: Problem,
 }
 impl ProblemResponse {
     fn new(body: Problem) -> Self {
@@ -57,12 +56,13 @@ impl RpcResponse for ProblemResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ProblemHeader {
-    #[serde(rename = "content-type")]
-    content_type: ContentTypeProblemJson,
+    #[serde(rename = "content-type")] content_type: ContentTypeProblemJson,
 }
 impl ProblemHeader {
     pub fn new() -> Self {
-        ProblemHeader { content_type: ContentTypeProblemJson }
+        ProblemHeader {
+            content_type: ContentTypeProblemJson,
+        }
     }
 }
 
@@ -240,9 +240,9 @@ impl TrackableProblem {
             detail: error.cause().map(|c| c.to_string()),
             instance: None,
             tracking_number: error.tracking_number(),
-            history: error.history().map(|h| {
-                h.events().iter().map(|e| e.to_string()).collect()
-            }),
+            history: error
+                .history()
+                .map(|h| h.events().iter().map(|e| e.to_string()).collect()),
         }
     }
 }

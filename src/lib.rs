@@ -21,8 +21,9 @@ extern crate url_serde;
 pub use miasht::builtin::futures::FutureExt;
 
 #[allow(missing_docs)]
-pub type BodyReader =
-    miasht::builtin::io::BodyReader<miasht::server::Request<fibers::net::TcpStream>>;
+pub type BodyReader = miasht::builtin::io::BodyReader<
+    miasht::server::Request<fibers::net::TcpStream>,
+>;
 
 #[allow(missing_docs)]
 pub fn content_length(body: &BodyReader) -> Option<u64> {
@@ -38,7 +39,7 @@ pub type ReadBody<T> = Box<futures::Future<Item = (BodyReader, T), Error = Error
 
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};
-pub use procedure::{Procedure, HandleRpc, RpcRequest, RpcResponse};
+pub use procedure::{HandleRpc, Procedure, RpcRequest, RpcResponse};
 pub use server::{RpcServer, RpcServerBuilder};
 
 /// A helper macro to construct an `EntryPoint` instance.

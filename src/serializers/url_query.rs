@@ -4,7 +4,7 @@ use serde::ser::Impossible;
 use url::UrlQuery;
 use url::form_urlencoded::Serializer;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 
 /// `Serializer` implementation for URL query string.
 pub struct UrlQuerySerializer<'a> {

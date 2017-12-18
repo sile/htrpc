@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use fibers::net::TcpStream;
-use futures::{self, Future, Poll, Async};
+use futures::{self, Async, Future, Poll};
 use handy_async::future::Phase;
 use miasht;
 use miasht::builtin::io::IoExt;

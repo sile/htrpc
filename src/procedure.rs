@@ -1,5 +1,5 @@
 use futures::Future;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use types::HttpMethod;
 

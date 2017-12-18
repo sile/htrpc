@@ -5,23 +5,17 @@ use futures::Future;
 use miasht::server::{Request, Response};
 use url::Url;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 use procedure::EntryPoint;
 use types::{HttpMethod, HttpStatus};
 
 type HandleHttpRequestResult = Box<
-    Future<
-        Item = (Response<TcpStream>,
-                Box<AsRef<[u8]> + Send + 'static>),
-        Error = Error,
-    >
+    Future<Item = (Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>), Error = Error>
         + Send
         + 'static,
 >;
 type HandleHttpRequest = Box<
-    Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult
-        + Send
-        + 'static,
+    Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult + Send + 'static,
 >;
 
 #[derive(Clone)]
@@ -43,9 +37,8 @@ impl Router {
                 return Err(HttpStatus::NotFound);
             }
         }
-        trie.get_value(request.method()).ok_or(
-            HttpStatus::MethodNotAllowed,
-        )
+        trie.get_value(request.method())
+            .ok_or(HttpStatus::MethodNotAllowed)
     }
 }
 
@@ -57,7 +50,9 @@ impl RouterBuilder {
         RouterBuilder { trie: Trie::new() }
     }
     pub fn finish(self) -> Router {
-        Router { trie: Arc::new(self.trie) }
+        Router {
+            trie: Arc::new(self.trie),
+        }
     }
     pub fn register_handler<H: Send + 'static>(
         &mut self,
@@ -78,7 +73,9 @@ struct Trie {
 }
 impl Trie {
     pub fn new() -> Self {
-        Trie { root: TrieNode::new() }
+        Trie {
+            root: TrieNode::new(),
+        }
     }
     pub fn insert(
         &mut self,
@@ -124,9 +121,9 @@ impl TrieNode {
     }
     pub fn get_child<'a>(&'a self, segment: &str) -> Option<&'a Self> {
         let segment: &'static str = unsafe { &*(segment as *const _) as _ };
-        self.children.get(&Some(segment)).or_else(
-            || self.children.get(&None),
-        )
+        self.children
+            .get(&Some(segment))
+            .or_else(|| self.children.get(&None))
     }
     pub fn get_value(&self, method: HttpMethod) -> Option<&HandleHttpRequest> {
         self.leafs.get(&method)

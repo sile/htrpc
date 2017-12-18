@@ -3,8 +3,8 @@ use miasht::server::Request;
 use serde::de::{self, Visitor};
 use url::Url;
 
-use {Result, Error, ErrorKind};
-use deserializers::{UrlPathDeserializer, UrlQueryDeserializer, HttpHeaderDeserializer};
+use {Error, ErrorKind, Result};
+use deserializers::{HttpHeaderDeserializer, UrlPathDeserializer, UrlQueryDeserializer};
 use types::EntryPoint;
 
 #[derive(Debug, Clone, Copy)]

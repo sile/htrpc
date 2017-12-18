@@ -1,14 +1,14 @@
 //! Connection pool.
 use std::cmp::Ordering;
-use std::collections::{Bound, BTreeMap, HashMap};
+use std::collections::{BTreeMap, Bound, HashMap};
 use std::fmt;
 use std::net::SocketAddr;
 use std::time::{Duration, SystemTime};
 use fibers::net::TcpStream;
 use fibers::sync::mpsc;
 use fibers::sync::oneshot;
-use fibers::time::timer::{TimerExt, TimeoutAfter};
-use futures::{self, Future, Async, Poll, Stream};
+use fibers::time::timer::{TimeoutAfter, TimerExt};
+use futures::{self, Async, Future, Poll, Stream};
 use futures::future::Done;
 use handy_async::future::Phase;
 use miasht;
@@ -51,7 +51,9 @@ enum Command {
         addr: SocketAddr,
         connection: TcpConnection,
     },
-    AddToBlacklist { addr: SocketAddr },
+    AddToBlacklist {
+        addr: SocketAddr,
+    },
 }
 
 struct PooledConnection {
@@ -128,7 +130,9 @@ impl RpcClientPool {
 
     /// Returns a handle of this pool.
     pub fn handle(&self) -> RpcClientPoolHandle {
-        RpcClientPoolHandle { command_tx: self.command_tx.clone() }
+        RpcClientPoolHandle {
+            command_tx: self.command_tx.clone(),
+        }
     }
 
     /// Sets the suspended duration of an erroneous TCP address.
@@ -151,8 +155,7 @@ impl RpcClientPool {
                             ErrorKind::Other
                                 .cause(format!(
                                     "The address {:?} is unavailable until {:?}",
-                                    addr,
-                                    suspended_until
+                                    addr, suspended_until
                                 ))
                                 .into(),
                         );
@@ -189,9 +192,11 @@ impl RpcClientPool {
                 on_error: None,
             }
         } else {
-            let phase = Phase::B(miasht::client::Client::new().connect(addr).timeout_after(
-                self.connect_timeout,
-            ));
+            let phase = Phase::B(
+                miasht::client::Client::new()
+                    .connect(addr)
+                    .timeout_after(self.connect_timeout),
+            );
             PooledConnection {
                 phase,
                 on_error: Some((addr, self.command_tx.clone())),

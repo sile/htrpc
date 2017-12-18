@@ -1,9 +1,9 @@
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
-use url::{Url, PathSegmentsMut};
+use url::{PathSegmentsMut, Url};
 use trackable::error::ErrorKindExt;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 use types::EntryPoint;
 
 /// `Serializer` implementation for URL path.
@@ -16,9 +16,10 @@ pub struct UrlPathSerializer<'a> {
 impl<'a> UrlPathSerializer<'a> {
     /// Makes a new `UrlPathSerializer` instance.
     pub fn new(entry_point: &'a EntryPoint, url: &'a mut Url) -> Result<Self> {
-        let segments = track!(url.path_segments_mut().map_err(
-            |_| ErrorKind::Invalid.error(),
-        ))?;
+        let segments = track!(
+            url.path_segments_mut()
+                .map_err(|_| ErrorKind::Invalid.error(),)
+        )?;
         Ok(UrlPathSerializer {
             segments,
             entry_point,

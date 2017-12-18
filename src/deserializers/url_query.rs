@@ -5,7 +5,7 @@ use serde::de::{self, Visitor};
 use trackable::error::ErrorKindExt;
 use url;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 
 #[derive(Debug, PartialEq, Eq)]
 enum Phase<'a> {

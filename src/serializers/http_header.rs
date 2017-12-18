@@ -3,7 +3,7 @@ use miasht::header::HeadersMut;
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 
 /// `Serializer` implementation for HTTP header.
 #[derive(Debug)]

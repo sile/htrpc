@@ -6,7 +6,7 @@ use serde::de::{self, Visitor};
 use url::{self, Url};
 use trackable::error::ErrorKindExt;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 use types::EntryPoint;
 
 /// `Deserializer` implementation for URL path.
@@ -21,9 +21,10 @@ pub struct UrlPathDeserializer<'de> {
 impl<'de> UrlPathDeserializer<'de> {
     /// Makes a new `UrlPathDeserializer` instance.
     pub fn new(entry_point: EntryPoint, url: &'de Url) -> Result<Self> {
-        let segments = track!(url.path_segments().ok_or_else(
-            || ErrorKind::Invalid.error(),
-        ))?;
+        let segments = track!(
+            url.path_segments()
+                .ok_or_else(|| ErrorKind::Invalid.error(),)
+        )?;
         Ok(UrlPathDeserializer {
             in_seq: false,
             segments: segments.peekable(),
@@ -37,12 +38,16 @@ impl<'de> UrlPathDeserializer<'de> {
     }
     fn finish(&mut self) -> Result<()> {
         for segment in &self.entry_point.segments()[self.index..] {
-            let expected = track!(segment.as_option().ok_or_else(
-                || ErrorKind::Invalid.error(),
-            ))?;
-            let actual = track!(self.segments.next().ok_or_else(
-                || ErrorKind::Invalid.error(),
-            ))?;
+            let expected = track!(
+                segment
+                    .as_option()
+                    .ok_or_else(|| ErrorKind::Invalid.error(),)
+            )?;
+            let actual = track!(
+                self.segments
+                    .next()
+                    .ok_or_else(|| ErrorKind::Invalid.error(),)
+            )?;
             track_assert_eq!(actual, expected, ErrorKind::Invalid);
         }
         Ok(())

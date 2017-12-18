@@ -1,7 +1,7 @@
 use std::sync::{Once, ONCE_INIT};
 use url::Url;
 
-use {Result, Error};
+use {Error, Result};
 
 pub fn parse_relative_url(url: &str) -> Result<Url> {
     static mut DUMMY_BASE_URL: Option<&'static Url> = None;

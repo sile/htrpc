@@ -5,7 +5,7 @@ use serde::de::{self, Visitor};
 use miasht::header::{Headers, Iter as HeadersIter};
 use trackable::error::ErrorKindExt;
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 
 #[derive(Debug, PartialEq, Eq)]
 enum Phase {
@@ -345,9 +345,7 @@ fn parse_slice<T: std::str::FromStr, B: AsRef<[u8]>>(bytes: B) -> Result<T>
 where
     Error: From<T::Err>,
 {
-    let s = std::str::from_utf8(bytes.as_ref()).map_err(|e| {
-        track!(ErrorKind::Invalid.cause(e))
-    })?;
+    let s = std::str::from_utf8(bytes.as_ref()).map_err(|e| track!(ErrorKind::Invalid.cause(e)))?;
     let v = track!(s.parse().map_err(Error::from))?;
     Ok(v)
 }

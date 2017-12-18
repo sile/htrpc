@@ -15,9 +15,7 @@ where
     T: Serialize,
     S: Serializer,
 {
-    let json = track!(serdeconv::to_json_string(&value)).map_err(|e| {
-        ser::Error::custom(e)
-    })?;
+    let json = track!(serdeconv::to_json_string(&value)).map_err(|e| ser::Error::custom(e))?;
     json.serialize(serializer)
 }
 

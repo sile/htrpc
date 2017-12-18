@@ -1,13 +1,13 @@
 use fibers::net::TcpStream;
 use miasht::builtin::headers;
-use miasht::server::{Connection, ResponseBuilder, Response};
+use miasht::server::{Connection, Response, ResponseBuilder};
 use miasht::status::RawStatus;
 use serde::{ser, Serialize};
 use serde::ser::Impossible;
 use serdeconv;
 use trackable::error::ErrorKindExt;
 
-use {Result, Error, ErrorKind, RpcResponse};
+use {Error, ErrorKind, Result, RpcResponse};
 use serializers::HttpHeaderSerializer;
 use types::HttpStatus;
 
@@ -205,9 +205,9 @@ impl<'a> ser::SerializeStruct for &'a mut RpcResponseSerializer {
                 let status = track!(serdeconv::to_json_string(value))?;
                 let status = track!(status.parse().map_err(Error::from))?;
                 let status = track!(
-                    RawStatus::new(status, "").normalize().ok_or_else(|| {
-                        ErrorKind::Invalid.error()
-                    }),
+                    RawStatus::new(status, "")
+                        .normalize()
+                        .ok_or_else(|| ErrorKind::Invalid.error()),
                     "Unknown HTTP status: {}",
                     status
                 )?;

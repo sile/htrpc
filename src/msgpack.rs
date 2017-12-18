@@ -15,9 +15,7 @@ where
     T: Serialize,
     S: Serializer,
 {
-    let msgpack = track!(serdeconv::to_msgpack_vec(&value)).map_err(|e| {
-        ser::Error::custom(e)
-    })?;
+    let msgpack = track!(serdeconv::to_msgpack_vec(&value)).map_err(|e| ser::Error::custom(e))?;
     msgpack.serialize(serializer)
 }
 

@@ -1,8 +1,8 @@
 use fibers::net::TcpStream;
 use miasht::client::Response;
-use serde::de::{self, Visitor, IntoDeserializer};
+use serde::de::{self, IntoDeserializer, Visitor};
 
-use {Result, Error, ErrorKind};
+use {Error, ErrorKind, Result};
 use deserializers::HttpHeaderDeserializer;
 
 #[derive(Debug, Clone, Copy)]
