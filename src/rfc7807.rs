@@ -4,7 +4,7 @@
 use std::error;
 use std::fmt;
 use serdeconv;
-use trackable::{Trackable, TrackingNumber};
+use trackable::Trackable;
 use url::Url;
 use url_serde;
 
@@ -214,14 +214,6 @@ pub struct TrackableProblem {
     #[serde(default)]
     pub instance: Option<Url>,
 
-    /// The tracking number of this problem (this type specific field).
-    ///
-    /// The format of this number is hexadecimal.
-    #[serde(with = "tracking_number")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub tracking_number: Option<TrackingNumber>,
-
     /// The tracking history of this problem (this type specific field).
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -239,40 +231,9 @@ impl TrackableProblem {
             status: status.code(),
             detail: error.cause().map(|c| c.to_string()),
             instance: None,
-            tracking_number: error.tracking_number(),
             history: error
                 .history()
                 .map(|h| h.events().iter().map(|e| e.to_string()).collect()),
-        }
-    }
-}
-
-mod tracking_number {
-    use std::u64;
-    use serde::de;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use trackable::TrackingNumber;
-
-    use Error;
-
-    pub fn serialize<S>(value: &Option<TrackingNumber>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        value.map(|v| v.to_string()).serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<TrackingNumber>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let hex: Option<String> = Option::deserialize(deserializer)?;
-        if let Some(hex) = hex {
-            let value = track!(u64::from_str_radix(&hex, 16).map_err(Error::from))
-                .map_err(|e| de::Error::custom(e))?;
-            Ok(Some(TrackingNumber(value)))
-        } else {
-            Ok(None)
         }
     }
 }
