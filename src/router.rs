@@ -14,9 +14,8 @@ type HandleHttpRequestResult = Box<
         + Send
         + 'static,
 >;
-type HandleHttpRequest = Box<
-    Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult + Send + 'static,
->;
+type HandleHttpRequest =
+    Box<Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult + Send + 'static>;
 
 #[derive(Clone)]
 pub struct Router {

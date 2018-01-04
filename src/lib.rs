@@ -21,9 +21,8 @@ extern crate url_serde;
 pub use miasht::builtin::futures::FutureExt;
 
 #[allow(missing_docs)]
-pub type BodyReader = miasht::builtin::io::BodyReader<
-    miasht::server::Request<fibers::net::TcpStream>,
->;
+pub type BodyReader =
+    miasht::builtin::io::BodyReader<miasht::server::Request<fibers::net::TcpStream>>;
 
 #[allow(missing_docs)]
 pub fn content_length(body: &BodyReader) -> Option<u64> {
