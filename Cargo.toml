@@ -9,9 +9,6 @@ readme = "README.md"
 categories = ["web-programming::http-server", "network-programming"]
 license = "MIT"
 
-[badges]
-travis-ci = {repository = "sile/htrpc"}
-
 [dependencies]
 fibers = "0.1"
 futures = "0.1"
