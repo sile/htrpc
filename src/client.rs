@@ -14,7 +14,7 @@ use procedure::Procedure;
 use serializers::RpcRequestSerializer;
 use types::HttpMethod;
 
-type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send + 'static>;
+type BoxFuture<T, E> = Box<dyn Future<Item = T, Error = E> + Send + 'static>;
 
 /// RPC Client.
 #[derive(Debug)]

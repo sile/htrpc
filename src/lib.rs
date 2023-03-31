@@ -34,7 +34,7 @@ pub fn content_length(body: &BodyReader) -> Option<u64> {
 }
 
 #[allow(missing_docs)]
-pub type ReadBody<T> = Box<futures::Future<Item = (BodyReader, T), Error = Error> + Send + 'static>;
+pub type ReadBody<T> = Box<dyn futures::Future<Item = (BodyReader, T), Error = Error> + Send + 'static>;
 
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};

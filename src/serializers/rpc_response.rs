@@ -22,7 +22,7 @@ impl RpcResponseSerializer {
     pub fn serialize<T>(
         mut rpc_response: T,
         connection: Connection<TcpStream>,
-    ) -> Result<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>)>
+    ) -> Result<(Response<TcpStream>, Box<dyn AsRef<[u8]> + Send + 'static>)>
     where
         T: Serialize + RpcResponse,
     {
@@ -43,8 +43,8 @@ impl RpcResponseSerializer {
     /// Finishes the serialization and returns the resulting HTTP response and body.
     pub fn finish(
         self,
-        body: Box<AsRef<[u8]> + Send + 'static>,
-    ) -> Result<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>)> {
+        body: Box<dyn AsRef<[u8]> + Send + 'static>,
+    ) -> Result<(Response<TcpStream>, Box<dyn AsRef<[u8]> + Send + 'static>)> {
         track_assert!(self.response.is_some(), ErrorKind::Invalid);
         let mut response = self.response.expect("Never fail");
         response.add_header(&headers::ContentLength((*body).as_ref().len() as u64));

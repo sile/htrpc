@@ -10,12 +10,12 @@ use procedure::EntryPoint;
 use types::{HttpMethod, HttpStatus};
 
 type HandleHttpRequestResult = Box<
-    Future<Item = (Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>), Error = Error>
+    dyn Future<Item = (Response<TcpStream>, Box<dyn AsRef<[u8]> + Send + 'static>), Error = Error>
         + Send
         + 'static,
 >;
 type HandleHttpRequest =
-    Box<Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult + Send + 'static>;
+    Box<dyn Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult + Send + 'static>;
 
 #[derive(Clone)]
 pub struct Router {

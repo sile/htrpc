@@ -42,7 +42,7 @@ impl ProblemResponse {
     }
 }
 impl RpcResponse for ProblemResponse {
-    fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static> {
+    fn body(&mut self) -> Box<dyn AsRef<[u8]> + Send + 'static> {
         let json = serdeconv::to_json_string_pretty(&self.body).expect("Never fails");
         Box::new(json.into_bytes())
     }

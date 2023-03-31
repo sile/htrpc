@@ -2,8 +2,8 @@ use fibers::net::TcpStream;
 use miasht::client::Response;
 use serde::de::{self, IntoDeserializer, Visitor};
 
-use {Error, ErrorKind, Result};
 use deserializers::HttpHeaderDeserializer;
+use {Error, ErrorKind, Result};
 
 #[derive(Debug, Clone, Copy)]
 enum Phase {
@@ -274,7 +274,6 @@ impl<'de, 'a> de::EnumAccess<'de> for Enum<'de, 'a> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        use serde::de::IntoDeserializer;
         use serde::de::value::StrDeserializer;
         let val = {
             let status = track!(status_code_to_str(self.0.response.status().code()))?;

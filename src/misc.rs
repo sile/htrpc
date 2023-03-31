@@ -1,11 +1,11 @@
-use std::sync::{Once, ONCE_INIT};
+use std::sync::{Once};
 use url::Url;
 
 use {Error, Result};
 
 pub fn parse_relative_url(url: &str) -> Result<Url> {
     static mut DUMMY_BASE_URL: Option<&'static Url> = None;
-    static START: Once = ONCE_INIT;
+    static START: Once = Once::new();
 
     START.call_once(|| {
         let url = Url::parse("http://foo/").expect("Never fails");

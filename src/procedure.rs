@@ -51,7 +51,7 @@ pub trait RpcRequest: Serialize + for<'a> Deserialize<'a> + Send + 'static {
 /// Implementations of this trait have to follow conventions as follows.
 pub trait RpcResponse: Serialize + for<'a> Deserialize<'a> {
     /// Returns the body of this HTTP response.
-    fn body(&mut self) -> Box<AsRef<[u8]> + Send + 'static>;
+    fn body(&mut self) -> Box<dyn AsRef<[u8]> + Send + 'static>;
 
     /// Sets the body of this HTTP response.
     fn set_body(&mut self, body: Vec<u8>);

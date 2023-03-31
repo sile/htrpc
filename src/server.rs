@@ -1,9 +1,7 @@
-use std::io;
-use std::net::SocketAddr;
-use fibers::{self, BoxSpawn, Spawn};
 use fibers::net::TcpStream;
-use futures::{self, Async, Future, Poll, Stream};
+use fibers::{self, BoxSpawn, Spawn};
 use futures::stream::StreamFuture;
+use futures::{self, Async, Future, Poll, Stream};
 use handy_async::future::Phase;
 use miasht;
 use miasht::builtin::futures::FutureExt;
@@ -11,9 +9,10 @@ use miasht::builtin::io::IoExt;
 use miasht::server::{Connection, Request, Response};
 use serde::Deserialize;
 use slog::{Discard, Logger};
+use std::io;
+use std::net::SocketAddr;
 use trackable::error::ErrorKindExt;
 
-use {Error, ErrorKind, Result};
 use deserializers::RpcRequestDeserializer;
 use misc;
 use procedure::{HandleRpc, Procedure};
@@ -21,8 +20,9 @@ use rfc7807::Problem;
 use router::{Router, RouterBuilder};
 use serializers::RpcResponseSerializer;
 use types::{HttpMethod, HttpStatus};
+use {Error, ErrorKind, Result};
 
-type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send + 'static>;
+type BoxFuture<T, E> = Box<dyn Future<Item = T, Error = E> + Send + 'static>;
 
 /// The `RpcServer` builder.
 pub struct RpcServerBuilder {
@@ -97,10 +97,9 @@ impl RpcServerBuilder {
             let future: BoxFuture<_, _> = Box::new(future);
             future
         };
-        track!(
-            self.router
-                .register_handler(P::method(), P::entry_point(), handle_http_request,)
-        )?;
+        track!(self
+            .router
+            .register_handler(P::method(), P::entry_point(), handle_http_request,))?;
         Ok(())
     }
 
@@ -148,9 +147,7 @@ impl Future for RpcServer {
 
                     let connected = connected.then(|result| {
                         let stream = track!(result.map_err(miasht::Error::from))?;
-                        unsafe {
-                            let _ = stream.with_inner(|inner| inner.set_nodelay(true));
-                        }
+                        let _ = stream.with_inner(|inner| inner.set_nodelay(true));
                         Ok(Connection::new(stream, 1024, 8096, 32))
                     });
                     let future = HandleHttpRequest {
@@ -175,7 +172,7 @@ struct HandleHttpRequest {
     phase: Phase<
         BoxFuture<Connection<TcpStream>, miasht::Error>,
         BoxFuture<Option<Request<TcpStream>>, miasht::Error>,
-        BoxFuture<(Response<TcpStream>, Box<AsRef<[u8]> + Send + 'static>), Error>,
+        BoxFuture<(Response<TcpStream>, Box<dyn AsRef<[u8]> + Send + 'static>), Error>,
     >,
     method: HttpMethod,
 }
@@ -210,36 +207,19 @@ impl HandleHttpRequest {
                         request.path(),
                     );
                     self.method = request.method();
-                    let future: BoxFuture<_, _> = match track!(misc::parse_relative_url(
-                        request.path()
-                    )) {
-                        Err(e) => {
-                            let future = futures::done(request.into_body_reader())
-                                .map_err(Error::from)
-                                .and_then(|request| request.read_all_bytes().map_err(Error::from))
-                                .and_then(|(request, _)| {
-                                    let request = request.into_inner();
-                                    let rpc_response =
-                                        Problem::trackable(HttpStatus::BadRequest, e)
-                                            .into_response();
-                                    track!(RpcResponseSerializer::serialize(
-                                        rpc_response,
-                                        request.finish(),
-                                    ))
-                                });
-                            Box::new(future)
-                        }
-                        Ok(url) => match self.router.route(&url, &request) {
-                            Err(status) => {
+                    let future: BoxFuture<_, _> =
+                        match track!(misc::parse_relative_url(request.path())) {
+                            Err(e) => {
                                 let future = futures::done(request.into_body_reader())
                                     .map_err(Error::from)
                                     .and_then(|request| {
                                         request.read_all_bytes().map_err(Error::from)
                                     })
-                                    .and_then(move |(request, _)| {
+                                    .and_then(|(request, _)| {
                                         let request = request.into_inner();
                                         let rpc_response =
-                                            Problem::about_blank(status).into_response();
+                                            Problem::trackable(HttpStatus::BadRequest, e)
+                                                .into_response();
                                         track!(RpcResponseSerializer::serialize(
                                             rpc_response,
                                             request.finish(),
@@ -247,16 +227,34 @@ impl HandleHttpRequest {
                                     });
                                 Box::new(future)
                             }
-                            Ok(handler) => handler(url, request),
-                        },
-                    };
+                            Ok(url) => match self.router.route(&url, &request) {
+                                Err(status) => {
+                                    let future = futures::done(request.into_body_reader())
+                                        .map_err(Error::from)
+                                        .and_then(|request| {
+                                            request.read_all_bytes().map_err(Error::from)
+                                        })
+                                        .and_then(move |(request, _)| {
+                                            let request = request.into_inner();
+                                            let rpc_response =
+                                                Problem::about_blank(status).into_response();
+                                            track!(RpcResponseSerializer::serialize(
+                                                rpc_response,
+                                                request.finish(),
+                                            ))
+                                        });
+                                    Box::new(future)
+                                }
+                                Ok(handler) => handler(url, request),
+                            },
+                        };
                     Phase::C(future)
                 }
                 Async::Ready(Phase::C((response, body))) => {
                     let future: BoxFuture<_, _> = if self.method == HttpMethod::Head {
                         Box::new(response)
                     } else {
-                        struct Temp(Box<AsRef<[u8]> + Send + 'static>);
+                        struct Temp(Box<dyn AsRef<[u8]> + Send + 'static>);
                         impl AsRef<[u8]> for Temp {
                             fn as_ref(&self) -> &[u8] {
                                 (*self.0).as_ref()
