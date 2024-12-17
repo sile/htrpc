@@ -1,15 +1,15 @@
 //! "Problem Details for HTTP APIs ([RFC 7807][RFC 7807])" related components.
 //!
 //! [RFC 7807]: https://tools.ietf.org/html/rfc7807
+use serdeconv;
 use std::error;
 use std::fmt;
-use serdeconv;
 use trackable::Trackable;
 use url::Url;
 use url_serde;
 
-use RpcResponse;
 use types::HttpStatus;
+use RpcResponse;
 
 /// An RPC response that comforms [RFC 7807](RFC 7807).
 ///
@@ -20,7 +20,8 @@ use types::HttpStatus;
 pub struct ProblemResponse {
     status: Option<u16>,
     header: ProblemHeader,
-    #[serde(skip)] body: Problem,
+    #[serde(skip)]
+    body: Problem,
 }
 impl ProblemResponse {
     fn new(body: Problem) -> Self {
@@ -56,7 +57,8 @@ impl RpcResponse for ProblemResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ProblemHeader {
-    #[serde(rename = "content-type")] content_type: ContentTypeProblemJson,
+    #[serde(rename = "content-type")]
+    content_type: ContentTypeProblemJson,
 }
 impl ProblemHeader {
     pub fn new() -> Self {
@@ -227,9 +229,9 @@ impl TrackableProblem {
         E::Event: fmt::Display,
     {
         TrackableProblem {
-            title: error.description().to_string(),
+            title: error.to_string(),
             status: status.code(),
-            detail: error.cause().map(|c| c.to_string()),
+            detail: error.source().map(|c| c.to_string()),
             instance: None,
             history: error
                 .history()

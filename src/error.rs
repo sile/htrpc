@@ -1,19 +1,18 @@
-use std;
-use std::io;
-use std::fmt::Display;
-use std::sync::mpsc::RecvError;
 use handy_async::future::Phase;
 use miasht;
 use serde::{de, ser};
 use serdeconv;
+use std;
+use std::fmt::Display;
+use std::io;
+use std::sync::mpsc::RecvError;
 use trackable::error::TrackableError;
 use trackable::error::{ErrorKind as TrackableErrorKind, ErrorKindExt};
 use url;
 
 /// This crate specific error type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, trackable::TrackableError)]
 pub struct Error(TrackableError<ErrorKind>);
-derive_traits_for_trackable_error_newtype!(Error, ErrorKind);
 impl From<RecvError> for Error {
     fn from(f: RecvError) -> Self {
         ErrorKind::Other.cause(f).into()
