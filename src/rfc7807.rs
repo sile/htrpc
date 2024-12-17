@@ -6,7 +6,6 @@ use std::error;
 use std::fmt;
 use trackable::Trackable;
 use url::Url;
-use url_serde;
 
 use types::HttpStatus;
 use RpcResponse;
@@ -28,7 +27,7 @@ impl ProblemResponse {
         ProblemResponse {
             status: Some(body.get_status_code()),
             header: ProblemHeader::new(),
-            body: body,
+            body,
         }
     }
 
@@ -110,9 +109,8 @@ impl ProblemHeader {
 /// let http_body = serdeconv::to_json_string_pretty(&problem).unwrap();
 /// assert_eq!(http_body, r#"{
 ///   "type": "https://docs.rs/htrpc/0.0.2/htrpc/rfc7807/struct.TrackableProblem.html",
-///   "title": "An error",
+///   "title": "Other (cause; something wrong)\nHISTORY:\n",
 ///   "status": 404,
-///   "detail": "something wrong",
 ///   "history": []
 /// }"#);
 /// # }
@@ -211,7 +209,6 @@ pub struct TrackableProblem {
     pub detail: Option<String>,
 
     /// The instance URI of this problem.
-    #[serde(with = "url_serde")]
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub instance: Option<Url>,

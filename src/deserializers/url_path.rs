@@ -1,13 +1,12 @@
+use serde::de::{self, Visitor};
 use std;
-use std::borrow::Cow;
 use std::iter::Peekable;
 use std::str::Split;
-use serde::de::{self, Visitor};
-use url::{self, Url};
 use trackable::error::ErrorKindExt;
+use url::Url;
 
-use {Error, ErrorKind, Result};
 use types::EntryPoint;
+use {Error, ErrorKind, Result};
 
 /// `Deserializer` implementation for URL path.
 #[derive(Debug)]
@@ -21,10 +20,9 @@ pub struct UrlPathDeserializer<'de> {
 impl<'de> UrlPathDeserializer<'de> {
     /// Makes a new `UrlPathDeserializer` instance.
     pub fn new(entry_point: EntryPoint, url: &'de Url) -> Result<Self> {
-        let segments = track!(
-            url.path_segments()
-                .ok_or_else(|| ErrorKind::Invalid.error(),)
-        )?;
+        let segments = track!(url
+            .path_segments()
+            .ok_or_else(|| ErrorKind::Invalid.error(),))?;
         Ok(UrlPathDeserializer {
             in_seq: false,
             segments: segments.peekable(),
@@ -38,16 +36,13 @@ impl<'de> UrlPathDeserializer<'de> {
     }
     fn finish(&mut self) -> Result<()> {
         for segment in &self.entry_point.segments()[self.index..] {
-            let expected = track!(
-                segment
-                    .as_option()
-                    .ok_or_else(|| ErrorKind::Invalid.error(),)
-            )?;
-            let actual = track!(
-                self.segments
-                    .next()
-                    .ok_or_else(|| ErrorKind::Invalid.error(),)
-            )?;
+            let expected = track!(segment
+                .as_option()
+                .ok_or_else(|| ErrorKind::Invalid.error(),))?;
+            let actual = track!(self
+                .segments
+                .next()
+                .ok_or_else(|| ErrorKind::Invalid.error(),))?;
             track_assert_eq!(actual, expected, ErrorKind::Invalid);
         }
         Ok(())
@@ -191,15 +186,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut UrlPathDeserializer<'de> {
         V: Visitor<'de>,
     {
         let v = track!(self.next_value())?;
-        let v = track!(
-            url::percent_encoding::percent_decode(v.as_bytes())
-                .decode_utf8()
-                .map_err(Error::from)
-        )?;
-        match v {
-            Cow::Borrowed(s) => track!(visitor.visit_borrowed_str(s)),
-            Cow::Owned(s) => track!(visitor.visit_string(s)),
-        }
+        let s = track!(percent_decode(v))?;
+        track!(visitor.visit_string(s))
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -344,11 +332,32 @@ fn parse_escaped_str<T: std::str::FromStr>(s: &str) -> Result<T>
 where
     Error: From<T::Err>,
 {
-    let s = url::percent_encoding::percent_decode(s.as_bytes())
-        .decode_utf8()
-        .map_err(|e| track!(ErrorKind::Invalid.cause(e)))?;
+    let s = percent_decode(s)?;
     let v = track!(s.parse().map_err(Error::from), "s={:?}", s)?;
     Ok(v)
+}
+
+fn percent_decode(s: &str) -> Result<String> {
+    let mut chars = s.chars();
+    let mut decoded = String::new();
+    while let Some(c) = chars.next() {
+        if c == '%' {
+            let h0 = track!(chars
+                .next()
+                .ok_or_else(|| ErrorKind::Invalid.cause("Invalid escaped char")))?;
+            let h1 = track!(chars
+                .next()
+                .ok_or_else(|| ErrorKind::Invalid.cause("Invalid escaped char")))?;
+            let code = track!(u32::from_str_radix(&format!("{h0}{h1}"), 16)
+                .map_err(|e| track!(ErrorKind::Invalid.cause(e))))?;
+            let c = track!(char::from_u32(code)
+                .ok_or_else(|| ErrorKind::Invalid.cause("Invalid escaped char")))?;
+            decoded.push(c);
+            continue;
+        }
+        decoded.push(c);
+    }
+    Ok(decoded)
 }
 
 #[cfg(test)]

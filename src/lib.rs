@@ -16,7 +16,6 @@ extern crate slog;
 #[macro_use]
 extern crate trackable;
 extern crate url;
-extern crate url_serde;
 
 pub use miasht::builtin::futures::FutureExt;
 
@@ -34,7 +33,8 @@ pub fn content_length(body: &BodyReader) -> Option<u64> {
 }
 
 #[allow(missing_docs)]
-pub type ReadBody<T> = Box<dyn futures::Future<Item = (BodyReader, T), Error = Error> + Send + 'static>;
+pub type ReadBody<T> =
+    Box<dyn futures::Future<Item = (BodyReader, T), Error = Error> + Send + 'static>;
 
 pub use client::RpcClient;
 pub use error::{Error, ErrorKind};
@@ -77,7 +77,7 @@ macro_rules! htrpc_expand_segment {
     };
     ($s:expr) => {
         $crate::types::PathSegment::Val($s)
-    }
+    };
 }
 
 pub mod deserializers;

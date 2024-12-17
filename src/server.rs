@@ -276,7 +276,6 @@ impl Future for HandleHttpRequest {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.poll_impl().map_err(|e| {
             warn!(self.logger, "Failed to handle RPC request: {}", e);
-            ()
         })
     }
 }

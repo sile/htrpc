@@ -19,5 +19,4 @@ serde_derive = "1"
 serdeconv = "0.4"
 slog = "2"
 trackable = "1"
-url = "1"
-url_serde = "0.2"
+url = { version = "2", features = ["serde"] }

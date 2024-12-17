@@ -1,8 +1,8 @@
-use std::borrow::Cow;
-use serde::{ser, Serialize};
 use serde::ser::Impossible;
-use url::UrlQuery;
+use serde::{ser, Serialize};
+use std::borrow::Cow;
 use url::form_urlencoded::Serializer;
+use url::UrlQuery;
 
 use {Error, ErrorKind, Result};
 
@@ -10,11 +10,11 @@ use {Error, ErrorKind, Result};
 pub struct UrlQuerySerializer<'a> {
     is_first: bool,
     key: Option<Cow<'static, str>>,
-    query: Serializer<UrlQuery<'a>>,
+    query: Serializer<'a, UrlQuery<'a>>,
 }
 impl<'a> UrlQuerySerializer<'a> {
     /// Makes a new `UrlQuerySerializer` instance.
-    pub fn new(query: Serializer<UrlQuery<'a>>) -> Self {
+    pub fn new(query: Serializer<'a, UrlQuery<'a>>) -> Self {
         UrlQuerySerializer {
             is_first: true,
             key: None,
@@ -232,9 +232,9 @@ impl<'a, 'b> ser::SerializeStructVariant for &'a mut UrlQuerySerializer<'b> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use std::collections::BTreeMap;
     use url::Url;
-    use super::*;
 
     #[test]
     fn map_works() {

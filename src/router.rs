@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use fibers::net::TcpStream;
 use futures::Future;
 use miasht::server::{Request, Response};
+use std::collections::HashMap;
+use std::sync::Arc;
 use url::Url;
 
-use {Error, ErrorKind, Result};
 use procedure::EntryPoint;
 use types::{HttpMethod, HttpStatus};
+use {Error, ErrorKind, Result};
 
 type HandleHttpRequestResult = Box<
     dyn Future<Item = (Response<TcpStream>, Box<dyn AsRef<[u8]> + Send + 'static>), Error = Error>
@@ -53,14 +53,14 @@ impl RouterBuilder {
             trie: Arc::new(self.trie),
         }
     }
-    pub fn register_handler<H: Send + 'static>(
+    pub fn register_handler<H>(
         &mut self,
         method: HttpMethod,
         entry_point: EntryPoint,
         handler: H,
     ) -> Result<()>
     where
-        H: Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult,
+        H: Send + 'static + Fn(Url, Request<TcpStream>) -> HandleHttpRequestResult,
     {
         track!(self.trie.insert(method, &entry_point, Box::new(handler)))?;
         Ok(())
